@@ -1,0 +1,42 @@
+CREATE TABLE IF NOT EXISTS cards (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100),
+  color VARCHAR(50),
+  value INTEGER,
+  front_image_path VARCHAR(255)
+);
+
+INSERT INTO cards (name, color, value, front_image_path) VALUES
+('unter', 'acorn', 2, '01acorn-unter.png'),
+('ober', 'acorn', 3, '02acorn-ober.png'),
+('king', 'acorn', 4, '03acorn-king.png'),
+('seven', 'acorn', 7, '04acorn-seven.png'),
+('eight', 'acorn', 8, '05acorn-eight.png'),
+('nine', 'acorn', 9, '06acorn-nine.png'),
+('ten', 'acorn', 10, '07acorn-ten.png'),
+('ace', 'acorn', 11, '08acorn-ace.png'),
+('unter', 'bell', 2, '09bell-unter.png'),
+('ober', 'bell', 3, '10bell-ober.png'),
+('king', 'bell', 4, '11bell-king.png'),
+('seven', 'bell', 7, '12bell-seven.png'),
+('eight', 'bell', 8, '13bell-eight.png'),
+('nine', 'bell', 9, '14bell-nine.png'),
+('ten', 'bell', 10, '15bell-ten.png'),
+('ace', 'bell', 11, '16bell-ace.png'),
+('unter', 'heart', 2, '17heart-unter.png'),
+('ober', 'heart', 3, '18heart-ober.png'),
+('king', 'heart', 4, '19heart-king.png'),
+('seven', 'heart', 7, '20heart-seven.png'),
+('eight', 'heart', 8, '21heart-eight.png'),
+('nine', 'heart', 9, '22heart-nine.png'),
+('ten', 'heart', 10, '23heart-ten.png'),
+('ace', 'heart', 11, '24heart-ace.png'),
+('unter', 'leaf', 2, '25leaf-unter.png'),
+('ober', 'leaf', 3, '26leaf-ober.png'),
+('king', 'leaf', 4, '27leaf-king.png'),
+('seven', 'leaf', 7, '28leaf-seven.png'),
+('eight', 'leaf', 8, '29leaf-eight.png'),
+('nine', 'leaf', 9, '30leaf-nine.png'),
+('ten', 'leaf', 10, '31leaf-ten.png'),
+('ace', 'leaf', 11, '32leaf-ace.png');
+
