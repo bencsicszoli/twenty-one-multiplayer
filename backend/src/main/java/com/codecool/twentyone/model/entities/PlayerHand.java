@@ -16,6 +16,7 @@ public class PlayerHand {
     private String cardName;
     private String cardColor;
     private int cardValue;
+    private String frontImagePath;
 
     @ManyToOne
     @JoinColumn(name = "player_id")

@@ -3,6 +3,8 @@ package com.codecool.twentyone.model.entities;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.Cascade;
+
 import java.util.Set;
 
 @Entity
@@ -24,11 +26,16 @@ public class Player {
     private int losses = 0;
     private int balance = 100;
     private int cardNumber = 0;
-    private PlayerState state;
+    //private PlayerState state = PlayerState.WAITING_CARD;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "player_roles", joinColumns = @JoinColumn(name = "player_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
+    @Cascade(org.hibernate.annotations.CascadeType.ALL)
     private Set<Role> roles;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name="state")
+    private PlayerState playerState = PlayerState.WAITING_CARD;
 }
