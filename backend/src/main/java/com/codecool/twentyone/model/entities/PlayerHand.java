@@ -13,8 +13,6 @@ public class PlayerHand {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
 
-    private String cardName;
-    private String cardColor;
     private int cardValue;
     private String frontImagePath;
 

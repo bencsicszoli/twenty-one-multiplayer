@@ -7,7 +7,6 @@ import leafSvg from "./assets/leaf.svg";
 import {usePlayer} from './context/PlayerContext';
 
 function StatisticsPage() {
-  const API_URL = import.meta.env.VITE_API_URL;
  // const location = useLocation();
   const navigate = useNavigate();
   //const user = location.state;
@@ -17,7 +16,7 @@ function StatisticsPage() {
     if (!player) {
       navigate(`/`);
     }
-  }, [player, navigate, API_URL]);
+  }, [player, navigate]);
 
   if (!player) {
   return <p>Redirecting...</p>;

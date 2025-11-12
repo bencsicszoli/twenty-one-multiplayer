@@ -7,13 +7,11 @@ import leafSvg from '../assets/leaf.svg';
 import { usePlayer } from '../context/PlayerContext.jsx';
 
 function LoginPage() {
-  const API_URL = import.meta.env.VITE_API_URL;
-  const { setPlayer } = usePlayer();
+  const { setPlayer, token, setToken } = usePlayer();
   const [playerName, setPlayerName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [token, setToken] = useState(localStorage.getItem('jwtToken') || null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,7 +20,7 @@ function LoginPage() {
 
   async function postLogin() {
     try {
-        const response = await fetch(`${API_URL}/api/user/login`, {
+        const response = await fetch(`/api/user/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName, password }),
@@ -34,8 +32,7 @@ function LoginPage() {
       localStorage.setItem('jwtToken', jwt);
       setToken(jwt);
 
-      // Fetch user DTO from backend and set it in context!
-      const playerRes = await fetch(`${API_URL}/api/user/me`, {
+      const playerRes = await fetch(`/api/user/me`, {
         headers: { Authorization: 'Bearer ' + jwt },
       });
       if (!playerRes.ok) throw new Error('Could not fetch user info');

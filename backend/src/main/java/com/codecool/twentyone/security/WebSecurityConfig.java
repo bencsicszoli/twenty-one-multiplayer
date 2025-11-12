@@ -20,7 +20,6 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
 import java.util.Arrays;
 
 @Configuration
@@ -67,6 +66,7 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/user/register").permitAll()
                         .requestMatchers("/api/user/login").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/user/me").authenticated()
                         .anyRequest().authenticated()
                 )

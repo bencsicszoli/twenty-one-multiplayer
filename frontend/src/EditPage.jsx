@@ -7,7 +7,6 @@ import leafSvg from "./assets/leaf.svg";
 import { usePlayer } from "./context/PlayerContext";
 
 function EditPage() {
-  const API_URL = import.meta.env.VITE_API_URL;
   const navigate = useNavigate();
   const { player } = usePlayer();
 
@@ -15,7 +14,7 @@ function EditPage() {
     if (!player) {
       navigate(`/`);
     }
-  }, [player, navigate, API_URL]);
+  }, [player, navigate]);
 
   const [name, setName] = useState(player?.playerName || "");
   const [email, setEmail] = useState(player?.email || "");
@@ -26,7 +25,7 @@ function EditPage() {
 
   async function handleDelete() {
     try {
-      const response = await fetch(`${API_URL}/api/user/delete`, {
+      const response = await fetch(`/api/user/delete`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",

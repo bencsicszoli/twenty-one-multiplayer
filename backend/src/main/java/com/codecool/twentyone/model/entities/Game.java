@@ -1,15 +1,12 @@
 package com.codecool.twentyone.model.entities;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Getter
-@Setter
+@Data
 @Entity
+@NoArgsConstructor
 public class Game {
 
     @Id
@@ -18,9 +15,15 @@ public class Game {
     private String player1;
     private String player2;
     private String player3;
+    private Long dealerId;
     private int player1Balance;
     private int player2Balance;
     private int player3Balance;
     private int dealerBalance;
+    private int remainingCards = 32;
+    private String turnName;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name="game_state")
+    private GameState state = GameState.NEW;
 }

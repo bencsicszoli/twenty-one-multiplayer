@@ -5,24 +5,70 @@ import heartSvg from "./assets/heart.svg";
 import acornSvg from "./assets/acorn.svg";
 import leafSvg from "./assets/leaf.svg";
 import { usePlayer } from "./context/PlayerContext";
+import { useWebSocket } from "./context/WebSocketContext";
+
 
 function MenuPage() {
-  const API_URL = import.meta.env.VITE_API_URL;
-  // const location = useLocation();
   const navigate = useNavigate();
-  //const user = location.state;
   const { player, logout } = usePlayer();
+  const { connected, subscribe, send } = useWebSocket();
 
-  console.log(player);
+    // Ha nincs bejelentkezett játékos, vissza a loginra
+  useEffect(() => {
+    if (!player) navigate(`/`);
+  }, [player, navigate]);
+
+  // Feliratkozás a game state-re
+  useEffect(() => {
+    if (!connected) return;
+
+    const subscription = subscribe("/topic/game.state", onGameStateReceived);
+
+    return () => subscription?.unsubscribe?.();
+  }, [connected, subscribe]);
+
+  function onGameStateReceived(payload) {
+    const message = JSON.parse(payload.body);
+
+    if (message.type === "game.joined" && message.gameId) {
+      navigate("/game", { state: { game: message } });
+    }
+  }
+
+  function joinGame() {
+    if (!connected) {
+      console.warn("WebSocket not connected yet, cannot join game.");
+      return;
+    }
+
+    send("/app/game.join", { playerName: player.playerName });
+  }
+/*
+  useEffect(() => {
+    if (!player) navigate(`/`);
+  }, [player, navigate]);
 
   useEffect(() => {
-    if (!player) {
-      navigate(`/`);
+    if (connected) {
+      // Feliratkozás globális játék eseményekre
+      subscribe("/topic/game.state", onGameStateReceived);
     }
-  }, [player, navigate, API_URL]);
+  }, [connected]);
 
+  function onGameStateReceived(payload) {
+    const message = JSON.parse(payload.body);
+
+    if (message.type === "game.joined" && message.gameId) {
+      navigate("/game", { state: { game: message } });
+    }
+  }
+
+  function joinGame() {
+    send("/app/game.join", { playerName: player.playerName });
+  }
+*/
   const handleHelpClick = () => {
-    window.open('https://hu.wikipedia.org/wiki/Huszonegyes');
+    window.open("https://hu.wikipedia.org/wiki/Huszonegyes");
   };
 
   return (
@@ -56,11 +102,12 @@ function MenuPage() {
           <div className="w-full bg-white border border-gray-200 rounded-lg shadow dark:border-gray-700 dark:bg-gray-800 md:mt-0 sm:max-w-md xl:p-0">
             <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
               <div>
-                <Link to={`/game`}>
-                  <button className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-semibold rounded-lg text-lg px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                    PLAY
-                  </button>
-                </Link>
+                <button
+                  onClick={joinGame}
+                  className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-semibold rounded-lg text-lg px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                >
+                  PLAY
+                </button>
               </div>
               <div>
                 <Link to={`/statistics`}>
@@ -84,15 +131,19 @@ function MenuPage() {
                 </Link>
               </div>
               <div>
-                
-                  <button onClick={handleHelpClick} className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
-                    Rules
-                  </button>
-                
+                <button
+                  onClick={handleHelpClick}
+                  className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                >
+                  Rules
+                </button>
               </div>
               <div>
                 <Link to={`/`}>
-                  <button onClick={logout} className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">
+                  <button
+                    onClick={logout}
+                    className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                  >
                     Logout
                   </button>
                 </Link>

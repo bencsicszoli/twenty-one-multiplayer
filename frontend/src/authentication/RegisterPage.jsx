@@ -6,7 +6,6 @@ import acornSvg from '../assets/acorn.svg';
 import leafSvg from '../assets/leaf.svg';
 
 function RegistrationPage() {
-  const API_URL = import.meta.env.VITE_API_URL;
   const [playerName, setPlayerName] = useState('');
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -15,7 +14,7 @@ function RegistrationPage() {
 
   async function postRegistration() {
     try {
-      const response = await fetch(`${API_URL}/api/user/register`, {
+      const response = await fetch(`/api/user/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ playerName, password, email }),
