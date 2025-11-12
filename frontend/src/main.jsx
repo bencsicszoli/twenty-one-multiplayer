@@ -4,6 +4,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import LoginPage from './authentication/LoginPage.jsx'
 import RegisterPage from './authentication/RegisterPage.jsx'
 import { PlayerProvider } from './context/PlayerContext.jsx';
+import { WebSocketProvider } from './context/WebSocketContext.jsx';
 import MenuPage from './MenuPage.jsx';
 import StatisticsPage from './StatisticsPage.jsx';
 import EditPage from './EditPage.jsx';
@@ -26,7 +27,9 @@ export default function App() {
 createRoot(document.getElementById('root')).render(
     <StrictMode>
       <PlayerProvider>
+        <WebSocketProvider>
           <App />
+        </WebSocketProvider>
       </PlayerProvider>
     </StrictMode>
 );
