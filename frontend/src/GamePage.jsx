@@ -10,8 +10,9 @@ function GamePage() {
 
   const [gameState, setGameState] = useState(game || {});
   const { subscribe, send } = useWebSocket();
+  /*
   const [computerBalance, setComputerBalance] = useState(
-    game?.dealerBalance ? game.computerBalance : 100
+    game?.dealerBalance ? game.dealerBalance : 100
   );
   const [remainingCards, setRemainingCards] = useState(
     game?.remainingCards ? game.remainingCards : 32
@@ -22,7 +23,7 @@ function GamePage() {
   const [player1Balance, setPlayer1Balance] = useState(
     game?.player1Balance ? game.player1Balance : 100
   );
-  const [ownHand, setOwnHand] = useState([]);
+  
   const [player1Pot, setPlayer1Pot] = useState(
     game?.player1Pot ? game.player1Pot : 0
   );
@@ -53,6 +54,9 @@ function GamePage() {
   const [player3CardsNumber, setPlayer3CardsNumber] = useState(
     game?.player3CardNumber ? game.player3CardNumber : 0
   );
+  */
+  const [ownHand, setOwnHand] = useState([]);
+  const [ownHandValue, setOwnHandValue] = useState(0);
   const [dealerHand, setDealerHand] = useState([]);
 
   useEffect(() => {
@@ -62,8 +66,21 @@ function GamePage() {
 
   function onHandUpdate(payload) {
     const message = JSON.parse(payload.body);
-    console.log("Private hand update:", message);
-    setOwnHand(message.cards);
+    console.log("Private topic update:", message);
+    switch (message.type) {
+      case "hand.update":
+        setOwnHand(message.cards);
+        setOwnHandValue(message.handValue);
+        break;
+        case "game.joined":
+        console.log("Joined game:", message);
+        setGameState(message);
+        break;
+      default:
+        console.log("Unknown private message type:", message.type);
+    }
+  
+    // Kezeljük a privát kéz frissítést itt
   }
 
   function onGameUpdate(payload) {
@@ -73,7 +90,11 @@ function GamePage() {
     switch (message.type) {
       case "game.pullCard":
         console.log("Pull card message received");
-        // setGameState(message);
+        setGameState(message);
+        break;
+      case "player.joined":
+        console.log("Another player joined:", message);
+        setGameState(message);
         break;
       default:
         console.log("Unknown message type:", message.type);
@@ -91,10 +112,11 @@ function GamePage() {
       </div>
     ));
   }
-
+/*
   function showHandValue(hand) {
     return hand.reduce((sum, card) => sum + card.cardValue, 0);
   }
+    */
 
   function showCardBacks(numberOfCards) {
     const backs = [];
@@ -118,7 +140,7 @@ function GamePage() {
         <div className="w-full h-[42rem] bg-poker-table rounded-[70px] shadow-2xl relative text-white px-6 sm:px-8">
           <div className="h-1/3 text-center">
             <p className="text-center">Computer</p>
-            <p className="text-center">{computerBalance} $</p>
+            <p className="text-center">{gameState.dealerBalance} $</p>
             {gameState.state === "NEW" && (
               <button onClick={getFirstCard} className="h-8 w-12 border">
                 DEAL!
@@ -135,17 +157,17 @@ function GamePage() {
                 <button className="border">Enough</button>
               </div>
               <div>
-                <p className="text-center">{player3Name}'s balance:</p>
-                <p className="text-center">{player3Balance} $</p>
+                <p className="text-center">{gameState.player3}'s balance:</p>
+                <p className="text-center">{gameState.player3} $</p>
                 <div>
                   <div className="h-20 w-3xs">{}</div>
-                  <p className="text-center">{player3Name}</p>
+                  <p className="text-center">{gameState.player3}</p>
                   <p className="text-center">Sum: {}</p>
                 </div>
               </div>
               <div>
-                <p className="text-center">{player3Name}'s bet:</p>
-                <p className="text-center">{player3Pot}</p>
+                <p className="text-center">{gameState.player3}'s bet:</p>
+                <p className="text-center">{gameState.player3Pot}</p>
               </div>
             </div>
             <div>
@@ -154,34 +176,34 @@ function GamePage() {
                 <div className="h-20 w-10 m-auto">
                   <img src="Back.jpg" alt="card-back" />
                 </div>
-                <p className="text-center">{remainingCards}</p>
+                <p className="text-center">{gameState.remainingCards}</p>
               </div>
             </div>
             <div className="flex">
               <div>
-                <p className="text-center">{player1Name}'s bet:</p>
-                <p className="text-center">{player1Pot}</p>
+                <p className="text-center">{gameState.player1}'s bet:</p>
+                <p className="text-center">{gameState.player1Pot}</p>
               </div>
               <div>
-                <p className="text-center">{player1Name}'s balance:</p>
-                <p className="text-center">{player1Balance} $</p>
+                <p className="text-center">{gameState.player1}'s balance:</p>
+                <p className="text-center">{gameState.player1Balance} $</p>
                 <div>
-                  {player1Name === player.playerName ? (
+                  {gameState.player1 === player.playerName ? (
                     <>
                       <div className="h-20 w-3xs text-center">
                         {showHand(ownHand)}
                       </div>
                       <p className="text-center">
-                        Sum: {showHandValue(ownHand)}
+                        Sum: {ownHandValue}
                       </p>
-                      <p className="text-center">{player1Name}</p>
+                      <p className="text-center">{gameState.player1}</p>
                     </>
                   ) : (
                     <>
                       <div className="h-20 w-3xs text-center">
-                        {showCardBacks(player1CardsNumber)}
+                        {showCardBacks(gameState.player1CardNumber)}
                       </div>
-                      <p className="text-center">{player1Name}</p>
+                      <p className="text-center">{gameState.player1}</p>
                     </>
                   )}
                 </div>
@@ -195,13 +217,13 @@ function GamePage() {
           </div>
           <div className="h-1/3 flex items-center justify-center">
             <div>
-              <p className="text-center">{player2Name}'s bet:</p>
-              <p className="text-center">{player2Pot}</p>
+              <p className="text-center">{gameState.player2}'s bet:</p>
+              <p className="text-center">{gameState.player2Pot}</p>
               <div>
-                <p className="text-center">{player2Name}'s balance:</p>
-                <p className="text-center">{player2Balance} $</p>
+                <p className="text-center">{gameState.player2}'s balance:</p>
+                <p className="text-center">{gameState.player2Balance} $</p>
                 <div className="h-20 w-3xs text-center">{}</div>
-                <p className="text-center">{player2Name}</p>
+                <p className="text-center">{gameState.player2}</p>
                 <p className="text-center">Sum: {}</p>
               </div>
             </div>

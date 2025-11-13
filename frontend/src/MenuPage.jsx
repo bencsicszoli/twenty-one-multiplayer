@@ -22,14 +22,13 @@ function MenuPage() {
   useEffect(() => {
     if (!connected) return;
 
-    const subscription = subscribe("/topic/game.state", onGameStateReceived);
+    const subscription = subscribe("/user/queue/private", onGameStateReceived);
 
     return () => subscription?.unsubscribe?.();
   }, [connected, subscribe]);
 
   function onGameStateReceived(payload) {
     const message = JSON.parse(payload.body);
-
     if (message.type === "game.joined" && message.gameId) {
       navigate("/game", { state: { game: message } });
     }

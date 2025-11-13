@@ -32,15 +32,23 @@ public class GameService {
         this.messageService = messageService;
     }
 
-    public HandDTO getFirstCard(Long gameId) {
+    public HandDTO getFirstCard(Long gameId, String playerName) {
         shuffleService.addShuffledDeck(gameId);
         Card firstCard = shuffleRepository.findCardByGameIdAndCardOrder(gameId, cardOrder).orElseThrow(() -> new RuntimeException("Card not found"));
+        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        PlayerHand hand = new PlayerHand();
+        hand.setCardValue(firstCard.getValue());
+        hand.setFrontImagePath(firstCard.getFrontImagePath());
+        hand.setPlayer(player);
+        playerHandRepository.save(hand);
+        int handValue = playerHandRepository.getHandValue(hand.getPlayer().getId());
+        System.out.println("Hand value: " + handValue);
         CardDTO dto = new CardDTO(firstCard.getValue(), firstCard.getFrontImagePath());
-        return new HandDTO(PlayerState.WAITING_CARD, List.of(dto));
+        return new HandDTO(PlayerState.WAITING_CARD, List.of(dto), handValue, "hand.update");
     }
 
-    public GameMessage pullCard(Long gameId, String username) {
-        Player currentPlayer = playerRepository.findByPlayerName(username).orElseThrow(() -> new RuntimeException("Player not found"));
+    public GameMessage pullCard(Long gameId, String playerName) {
+        Player currentPlayer = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
         currentPlayer.setCardNumber(currentPlayer.getCardNumber() + 1);
         playerRepository.save(currentPlayer);
         cardOrder++;
