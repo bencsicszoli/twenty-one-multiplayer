@@ -29,29 +29,35 @@ public class MessageController {
     }
 
     @MessageMapping("/game.join")
-    @SendTo("/topic/game.state")
-    public Object joinGame(@Payload JoinMessageDTO message, SimpMessageHeaderAccessor headerAccessor) {
+    public void joinGame(@Payload JoinMessageDTO message, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
         Game game = messageService.joinGame(message.playerName());
         if (game == null) {
             GameMessage errorMessage = new GameMessage();
             errorMessage.setType("error");
-            errorMessage.setContent("We were unable to enter the game. Perhaps the game is already full or there was an internal error.");
-            return errorMessage;
+            errorMessage.setContent("We were unable to enter the game.");
+            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", errorMessage);
+            return;
         }
+
         headerAccessor.getSessionAttributes().put("gameId", game.getGameId());
         headerAccessor.getSessionAttributes().put("player", message.playerName());
 
-        GameMessage gameMessage = messageService.gameToMessage(game);
-        gameMessage.setType("game.joined");
-        return gameMessage;
+        GameMessage privateMsg = messageService.gameToMessage(game);
+        privateMsg.setType("game.joined");
+        messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", privateMsg);
+
+        GameMessage broadcastMsg = messageService.gameToMessage(game);
+        broadcastMsg.setType("player.joined");
+        messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), broadcastMsg);
     }
+
 
     @MessageMapping("/game.firstCard")
     public void sendFirstCard(@Payload Map<String, Object> payload, Principal principal) {
         Number idNumber = (Number) payload.get("gameId");
         Long gameId = idNumber.longValue();
         String username = principal.getName();
-        HandDTO firstCard = gameService.getFirstCard(gameId);
+        HandDTO firstCard = gameService.getFirstCard(gameId, username);
         GameMessage message = gameService.pullCard(gameId, username);
         message.setType("game.pullCard");
         messagingTemplate.convertAndSendToUser(username, "/queue/private", firstCard);

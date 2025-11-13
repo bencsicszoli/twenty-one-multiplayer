@@ -33,12 +33,15 @@ public class MessageService {
             Game existingGame = existingGameOpt.get();
             if (existingGame.getPlayer1() == null) {
                 existingGame.setPlayer1(player);
+                existingGame.setPlayer2Balance(100);
                 return gameRepository.save(existingGame);
             } else if (existingGame.getPlayer2() == null) {
                 existingGame.setPlayer2(player);
+                existingGame.setPlayer2Balance(100);
                 return gameRepository.save(existingGame);
             } else {
                 existingGame.setPlayer3(player);
+                existingGame.setPlayer2Balance(100);
                 return gameRepository.save(existingGame);
             }
         }
