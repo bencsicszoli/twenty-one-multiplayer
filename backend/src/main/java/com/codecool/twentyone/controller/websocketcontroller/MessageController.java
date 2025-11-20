@@ -1,19 +1,21 @@
 package com.codecool.twentyone.controller.websocketcontroller;
 
-import com.codecool.twentyone.model.dto.GameMessage;
-import com.codecool.twentyone.model.dto.HandDTO;
-import com.codecool.twentyone.model.dto.JoinMessageDTO;
-import com.codecool.twentyone.model.entities.Game;
+import com.codecool.twentyone.model.dto.*;
+import com.codecool.twentyone.model.entities.*;
+import com.codecool.twentyone.repository.*;
 import com.codecool.twentyone.service.GameService;
 import com.codecool.twentyone.service.MessageService;
+import com.codecool.twentyone.service.ShuffleService;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.handler.annotation.SendTo;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.security.Principal;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 @Controller
 public class MessageController {
@@ -21,11 +23,24 @@ public class MessageController {
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageService messageService;
     private final GameService gameService;
+    private final ShuffleService shuffleService;
+    private final GameRepository gameRepository;
+    private final DealerRepository dealerRepository;
+    private final DealerHandRepository dealerHandRepository;
+    private final PlayerRepository playerRepository;
+    private final PlayerHandRepository playerHandRepository;
 
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GameService gameService) {
+    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GameService gameService, ShuffleService shuffleService, GameRepository gameRepository, DealerRepository dealerRepository, DealerHandRepository dealerHandRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository) {
         this.messageService = messageService;
         this.messagingTemplate = messagingTemplate;
         this.gameService = gameService;
+        this.shuffleService = shuffleService;
+        this.gameRepository = gameRepository;
+        this.dealerRepository = dealerRepository;
+        this.dealerHandRepository = dealerHandRepository;
+
+        this.playerRepository = playerRepository;
+        this.playerHandRepository = playerHandRepository;
     }
 
     @MessageMapping("/game.join")
@@ -51,16 +66,145 @@ public class MessageController {
         messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), broadcastMsg);
     }
 
+    @Transactional
+    @MessageMapping("/game.firstRound")
+    public void sendFirstRound(@Payload GameIdRequest request, Principal principal) {
+        ResetHandDTO resetOwnHandDTO = new ResetHandDTO("Reset your hand", "reset.ownHand");
+        ResetHandDTO resetPublicHandDTO = new ResetHandDTO("Reset public hands", "reset.publicHands");
+        messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), resetPublicHandDTO);
+        shuffleService.addShuffledDeck(request.gameId());
+        Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
+        game.setRemainingCards(32);
+        game.setState(GameState.NEW);
+        dealerRepository.setCardNumberById(game.getDealerId());
+        dealerHandRepository.deleteAllByDealerId(game.getDealerId());
+        List<String> players = new ArrayList<>();
+        Player player1 = null;
+        Player player2 = null;
+        Player player3;
+        if (game.getPlayer1() != null) {
+            player1 = playerRepository.findByPlayerName(game.getPlayer1()).orElseThrow(()-> new RuntimeException("Player not found"));
+            playerHandRepository.deleteAllByPlayerId(player1.getId());
+            player1.setCardNumber(0);
+            player1.setPlayerState(PlayerState.WAITING_CARD);
+            game.setTurnName(player1.getPlayerName());
+            playerRepository.save(player1);
+            players.add(game.getPlayer1());
+        }
+        if (game.getPlayer2() != null) {
+            player2 = playerRepository.findByPlayerName(game.getPlayer2()).orElseThrow(()-> new RuntimeException("Player not found"));
+            playerHandRepository.deleteAllByPlayerId(player2.getId());
+            player2.setCardNumber(0);
+            player2.setPlayerState(PlayerState.WAITING_CARD);
+            if (player1 == null) {
+                game.setTurnName(player2.getPlayerName());
+            }
+            playerRepository.save(player2);
+            players.add(game.getPlayer2());
+        }
+        if (game.getPlayer3() != null) {
+            player3 = playerRepository.findByPlayerName(game.getPlayer3()).orElseThrow(()-> new RuntimeException("Player not found"));
+            playerHandRepository.deleteAllByPlayerId(player3.getId());
+            player3.setCardNumber(0);
+            player3.setPlayerState(PlayerState.WAITING_CARD);
+            if (player1 == null && player2 == null) {
+                game.setTurnName(player3.getPlayerName());
+            }
+            players.add(game.getPlayer3());
+        }
+        game.setState(GameState.IN_PROGRESS);
 
-    @MessageMapping("/game.firstCard")
-    public void sendFirstCard(@Payload Map<String, Object> payload, Principal principal) {
-        Number idNumber = (Number) payload.get("gameId");
-        Long gameId = idNumber.longValue();
-        String username = principal.getName();
-        HandDTO firstCard = gameService.getFirstCard(gameId, username);
-        GameMessage message = gameService.pullCard(gameId, username);
-        message.setType("game.pullCard");
-        messagingTemplate.convertAndSendToUser(username, "/queue/private", firstCard);
-        messagingTemplate.convertAndSend("/topic/game." + gameId, message);
+        for (String player : players) {
+            PlayerHandDTO handDTO = gameService.getFirstCard(game.getGameId(), player);
+            game.setRemainingCards(game.getRemainingCards() - 1);
+            messagingTemplate.convertAndSendToUser(player, "/queue/private", handDTO);
+        }
+        gameService.giveDealerFirstCard(request.gameId(), game.getDealerId());
+        game.setRemainingCards(game.getRemainingCards() - 1);
+        gameRepository.save(game);
+        GameMessage message = messageService.gameToMessage(game);
+        message.setType("game.firstCard");
+        message.setDealerCardNumber(1);
+        messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), message);
     }
+
+    @MessageMapping("/game.pullCard")
+    public void pullCard(@Payload NewCardRequestDTO request, Principal principal) {
+        String playerName = principal.getName();
+        if (playerName.equals(request.turnName())) {
+            GameMessage message = gameService.pullCard(request.gameId(), playerName);
+            GameMessage dealerMessage = null;
+            message.setType("game.pullCard");
+            PlayerHandDTO hand = gameService.getHand(request.gameId(), playerName);
+            DealerHandDTO dealerHand = null;
+            PublicHandsDTO publicHands = null;
+            if (hand.playerState().equals(PlayerState.MUCH) || hand.playerState().equals(PlayerState.FIRE) || hand.playerState().equals(PlayerState.ENOUGH)) {
+                String newTurnName = gameService.getNextTurnName(request.gameId(), playerName);
+                if (newTurnName.equals("Dealer")) {
+                    dealerMessage = gameService.handleDealerTurn(request.gameId());
+                    dealerMessage.setType("game.dealerTurn");
+                    dealerHand = gameService.getDealerHand(request.gameId());
+                    publicHands = gameService.getPublicHands(request.gameId());
+
+                }
+                message.setTurnName(newTurnName);
+                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), hand);
+            }
+            messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+            if (dealerHand != null) {
+                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage);
+                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand);
+                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands);
+            }
+
+        } else {
+            throw new RuntimeException("Invalid turn"); //NotAllowedOperationException
+        }
+    }
+
+    @MessageMapping("/game.passTurn")
+    public void passTurn (@Payload PassTurnRequestDTO request) {
+        GameMessage message = gameService.passTurn(request.gameId(), request.turnName());
+        GameMessage dealerMessage = null;
+        DealerHandDTO dealerHand = null;
+        PublicHandsDTO publicHands = null;
+        if (message.getTurnName().equals("Dealer")) {
+            dealerMessage = gameService.handleDealerTurn(request.gameId());
+            dealerMessage.setType("game.dealerTurn");
+            dealerHand = gameService.getDealerHand(request.gameId());
+            publicHands = gameService.getPublicHands(request.gameId());
+        }
+        message.setType("game.passTurn");
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message); // type: game.passTurn
+        if (dealerHand != null) {
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage); // type: game.dealerTurn
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand); // type: dealerHand.update
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands); // type: publicHands.update
+        }
+    }
+/*
+    @MessageMapping("/game.dealerTurn")
+    public void dealerTurn(@Payload GameIdRequest request) {
+        GameMessage message = gameService.handleDealerTurn(request.gameId());
+        message.setType("game.dealerTurn");
+        DealerHandDTO dealerHand = gameService.getDealerHand(request.gameId());
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand);
+
+    }
+
+ */
+
+    /*
+    @MessageMapping("/game.nextCard")
+    public void nextCard(@Payload NewCardRequestDTO request) {
+        GameMessage message = gameService.passTurn(request.gameId(), request.turnName());
+        message.setType("game.nextCard");
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+    }
+
+     */
+
 }

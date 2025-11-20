@@ -3,6 +3,7 @@ package com.codecool.twentyone.service;
 import com.codecool.twentyone.model.dto.GameMessage;
 import com.codecool.twentyone.model.entities.Dealer;
 import com.codecool.twentyone.model.entities.Game;
+import com.codecool.twentyone.model.entities.Player;
 import com.codecool.twentyone.repository.DealerRepository;
 import com.codecool.twentyone.repository.GameRepository;
 import com.codecool.twentyone.repository.PlayerRepository;
@@ -41,7 +42,7 @@ public class MessageService {
                 return gameRepository.save(existingGame);
             } else {
                 existingGame.setPlayer3(player);
-                existingGame.setPlayer2Balance(100);
+                existingGame.setPlayer3Balance(100);
                 return gameRepository.save(existingGame);
             }
         }
@@ -78,19 +79,33 @@ public class MessageService {
         int player1CardNumber = 0;
         int player2CardNumber = 0;
         int player3CardNumber = 0;
+        int player1Pot = 0;
+        int player2Pot = 0;
+        int player3Pot = 0;
         if (player1Name != null) {
-            player1CardNumber = playerRepository.cardNumberByPlayerName(player1Name);
+            Player player1 = playerRepository.findByPlayerName(player1Name).orElseThrow(()-> new RuntimeException("Player " + player1Name + " not found"));
+            player1CardNumber = player1.getCardNumber();
+            player1Pot = player1.getPot();
         }
         if (player2Name != null) {
-            player2CardNumber = playerRepository.cardNumberByPlayerName(player2Name);
+            Player player2 = playerRepository.findByPlayerName(player2Name).orElseThrow();
+            player2CardNumber = player2.getCardNumber();
+            player2Pot = player2.getPot();
         }
         if (player3Name != null) {
-            player3CardNumber = playerRepository.cardNumberByPlayerName(player3Name);
+            Player player3 = playerRepository.findByPlayerName(player3Name).orElseThrow();
+            player3CardNumber = player3.getCardNumber();
+            player3Pot = player3.getPot();
         }
+        int dealerCardNumber = dealerRepository.findCardNumberById(game.getDealerId());
 
         message.setPlayer1CardNumber(player1CardNumber);
         message.setPlayer2CardNumber(player2CardNumber);
         message.setPlayer3CardNumber(player3CardNumber);
+        message.setDealerCardNumber(dealerCardNumber);
+        message.setPlayer1Pot(player1Pot);
+        message.setPlayer2Pot(player2Pot);
+        message.setPlayer3Pot(player3Pot);
 
         return message;
     }

@@ -18,6 +18,12 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     @NativeQuery(value = "SELECT card_number FROM player WHERE player_name = ?1")
     int cardNumberByPlayerName(@Param("player_name") String playerName);
 
+    @NativeQuery(value = "UPDATE player SET state='WAITING_CARD' WHERE id = ?1")
+    void updatePlayerState(@Param("id") Long id);
 
+    @NativeQuery(value = "update player set card_number=0 where card_number > ?1")
+    void updateCardNumber(@Param("card_number") int cardNumber);
 
+    @NativeQuery(value = "SELECT state FROM player WHERE player_name = ?1")
+    PlayerState getPlayerStateByPlayerName(@Param("player_name") String playerName);
 }
