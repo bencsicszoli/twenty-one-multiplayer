@@ -2,7 +2,6 @@ package com.codecool.twentyone.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import java.util.Random;
 
 @Configuration

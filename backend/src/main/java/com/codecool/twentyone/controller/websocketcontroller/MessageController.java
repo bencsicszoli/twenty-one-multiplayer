@@ -12,7 +12,6 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
@@ -57,13 +56,45 @@ public class MessageController {
         headerAccessor.getSessionAttributes().put("gameId", game.getGameId());
         headerAccessor.getSessionAttributes().put("player", message.playerName());
 
+
+
         GameMessage privateMsg = messageService.gameToMessage(game);
+        PublicHandsDTO publicHands;
+        if (privateMsg.isPublicHand1Exists() || privateMsg.isPublicHand2Exists() || privateMsg.isPublicHand3Exists() || privateMsg.isPublicHand4Exists()) {
+            publicHands = gameService.getPublicHandsByNewPlayer(game.getGameId());
+            //messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands);
+            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", publicHands);
+        }
         privateMsg.setType("game.joined");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", privateMsg);
 
         GameMessage broadcastMsg = messageService.gameToMessage(game);
+
         broadcastMsg.setType("player.joined");
         messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), broadcastMsg);
+    }
+
+    @MessageMapping("/game.leave")
+    public void leaveGame(@Payload LeaveMessageDTO request) {
+        GameMessage message = gameService.leaveGame(request.gameId(), request.playerName());
+        message.setType("player.leaved");
+
+        GameMessage dealerMessage = null;
+        DealerHandDTO dealerHand = null;
+        PublicHandsDTO publicHands = null;
+        if (message.getTurnName().equals("Dealer")) {
+            dealerMessage = gameService.handleDealerTurn(request.gameId());
+            dealerMessage.setType("game.dealerTurn");
+            dealerHand = gameService.getDealerHand(request.gameId());
+            publicHands = gameService.getPublicHands(request.gameId());
+        }
+        message.setType("game.passTurn");
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message); // type: game.passTurn
+        if (dealerHand != null) {
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage); // type: game.dealerTurn
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand); // type: dealerHand.update
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands); // type: publicHands.update
+        }
     }
 
     @Transactional
@@ -77,12 +108,17 @@ public class MessageController {
         Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
         game.setRemainingCards(32);
         game.setState(GameState.NEW);
+        game.setPublicHand1Exists(false);
+        game.setPublicHand2Exists(false);
+        game.setPublicHand3Exists(false);
+        game.setPublicHand4Exists(false);
         dealerRepository.setCardNumberById(game.getDealerId());
         dealerHandRepository.deleteAllByDealerId(game.getDealerId());
         List<String> players = new ArrayList<>();
         Player player1 = null;
         Player player2 = null;
-        Player player3;
+        Player player3 = null;
+        Player player4;
         if (game.getPlayer1() != null) {
             player1 = playerRepository.findByPlayerName(game.getPlayer1()).orElseThrow(()-> new RuntimeException("Player not found"));
             playerHandRepository.deleteAllByPlayerId(player1.getId());
@@ -113,6 +149,17 @@ public class MessageController {
             }
             players.add(game.getPlayer3());
         }
+        if (game.getPlayer4() != null) {
+            player4 = playerRepository.findByPlayerName(game.getPlayer4()).orElseThrow(()-> new RuntimeException("Player not found"));
+            playerHandRepository.deleteAllByPlayerId(player4.getId());
+            player4.setCardNumber(0);
+            player4.setPlayerState(PlayerState.WAITING_CARD);
+            if (player1 == null && player2 == null && player3 == null) {
+                game.setTurnName(player4.getPlayerName());
+            }
+            players.add(game.getPlayer4());
+
+        }
         game.setState(GameState.IN_PROGRESS);
 
         for (String player : players) {
@@ -122,6 +169,7 @@ public class MessageController {
         }
         gameService.giveDealerFirstCard(request.gameId(), game.getDealerId());
         game.setRemainingCards(game.getRemainingCards() - 1);
+        game.setInformation("Place some bet or take another card");
         gameRepository.save(game);
         GameMessage message = messageService.gameToMessage(game);
         message.setType("game.firstCard");
@@ -136,7 +184,7 @@ public class MessageController {
             GameMessage message = gameService.pullCard(request.gameId(), playerName);
             GameMessage dealerMessage = null;
             message.setType("game.pullCard");
-            PlayerHandDTO hand = gameService.getHand(request.gameId(), playerName);
+            PlayerHandDTO hand = gameService.getHand(playerName);
             DealerHandDTO dealerHand = null;
             PublicHandsDTO publicHands = null;
             if (hand.playerState().equals(PlayerState.MUCH) || hand.playerState().equals(PlayerState.FIRE) || hand.playerState().equals(PlayerState.ENOUGH)) {
@@ -158,7 +206,6 @@ public class MessageController {
                 messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand);
                 messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands);
             }
-
         } else {
             throw new RuntimeException("Invalid turn"); //NotAllowedOperationException
         }
@@ -184,27 +231,14 @@ public class MessageController {
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands); // type: publicHands.update
         }
     }
-/*
-    @MessageMapping("/game.dealerTurn")
-    public void dealerTurn(@Payload GameIdRequest request) {
-        GameMessage message = gameService.handleDealerTurn(request.gameId());
-        message.setType("game.dealerTurn");
-        DealerHandDTO dealerHand = gameService.getDealerHand(request.gameId());
+
+    @MessageMapping("/game.raiseBet")
+    public void raiseBet(@Payload RaiseBetDTO request) {
+        System.out.println("BET REQUEST: " + request);
+        GameMessage message = gameService.raiseBet(request.gameId(), request.turnName(), Integer.parseInt(request.bet()));
+        message.setType("game.raiseBet");
+        PlayerStateDTO dto = gameService.getPlayerState(request.turnName());
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
-        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand);
-
+        messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
     }
-
- */
-
-    /*
-    @MessageMapping("/game.nextCard")
-    public void nextCard(@Payload NewCardRequestDTO request) {
-        GameMessage message = gameService.passTurn(request.gameId(), request.turnName());
-        message.setType("game.nextCard");
-        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
-    }
-
-     */
-
 }

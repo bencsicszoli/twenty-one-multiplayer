@@ -11,10 +11,10 @@ import java.util.Optional;
 
 public interface GameRepository extends JpaRepository<Game, Long> {
 
-    @NativeQuery(value = "SELECT * FROM game WHERE player1 = ?1 OR player2 = ?1 OR player3 = ?1 LIMIT 1")
+    @NativeQuery(value = "SELECT * FROM game WHERE player1 = ?1 OR player2 = ?1 OR player3 = ?1 OR player4 = ?1 LIMIT 1")
     Optional<Game> findFirstGameByPlayer(@Param("player") String player);
 
-    @NativeQuery(value = "SELECT * FROM game WHERE player1 IS NULL OR player2 IS NULL OR player3 IS NULL LIMIT 1")
+    @NativeQuery(value = "SELECT * FROM game WHERE player1 IS NULL OR player2 IS NULL OR player3 IS NULL OR player4 IS NULL LIMIT 1")
     Optional<Game> findFirstGameByMissingPlayer();
 
     @NativeQuery(value = "SELECT player1 AS active_player FROM game WHERE game_id = ?1 AND player1 IS NOT NULL" +

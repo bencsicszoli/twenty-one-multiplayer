@@ -42,30 +42,7 @@ function MenuPage() {
 
     send("/app/game.join", { playerName: player.playerName });
   }
-/*
-  useEffect(() => {
-    if (!player) navigate(`/`);
-  }, [player, navigate]);
-
-  useEffect(() => {
-    if (connected) {
-      // Feliratkozás globális játék eseményekre
-      subscribe("/topic/game.state", onGameStateReceived);
-    }
-  }, [connected]);
-
-  function onGameStateReceived(payload) {
-    const message = JSON.parse(payload.body);
-
-    if (message.type === "game.joined" && message.gameId) {
-      navigate("/game", { state: { game: message } });
-    }
-  }
-
-  function joinGame() {
-    send("/app/game.join", { playerName: player.playerName });
-  }
-*/
+  
   const handleHelpClick = () => {
     window.open("https://hu.wikipedia.org/wiki/Huszonegyes");
   };
