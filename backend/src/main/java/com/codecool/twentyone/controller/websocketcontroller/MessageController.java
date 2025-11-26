@@ -62,7 +62,7 @@ public class MessageController {
         PublicHandsDTO publicHands;
         if (privateMsg.isPublicHand1Exists() || privateMsg.isPublicHand2Exists() || privateMsg.isPublicHand3Exists() || privateMsg.isPublicHand4Exists()) {
             publicHands = gameService.getPublicHandsByNewPlayer(game.getGameId());
-            //messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands);
+            messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands);
             messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", publicHands);
         }
         privateMsg.setType("game.joined");
@@ -240,5 +240,20 @@ public class MessageController {
         PlayerStateDTO dto = gameService.getPlayerState(request.turnName());
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
         messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
+    }
+
+    @MessageMapping("/game.throwCards")
+    public void throwCards(@Payload NewCardRequestDTO request, Principal principal) {
+        String playerName = principal.getName();
+
+        if (playerName.equals(request.turnName())) {
+            GameMessage message = gameService.throwCards(playerName, request.gameId());
+            message.setType("game.throwCards");
+            PlayerHandDTO dto = new PlayerHandDTO(PlayerState.WAITING_CARD, List.of(), 0, "hand.update");
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+            messagingTemplate.convertAndSendToUser(playerName, "/queue/private", dto);
+        } else {
+            throw new RuntimeException("Invalid turn");
+        }
     }
 }

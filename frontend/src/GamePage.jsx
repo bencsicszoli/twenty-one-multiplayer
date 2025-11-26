@@ -6,6 +6,7 @@ import HandlerPanel from "./HandlerPanel";
 import PotPlace from "./PotPlace";
 import HandPlace from "./HandPlace";
 import { useNavigate } from "react-router-dom";
+import MenuButton from "./MenuButton";
 
 function GamePage() {
   const location = useLocation();
@@ -35,9 +36,7 @@ function GamePage() {
     if (!game || !player) {
       navigate("/");
     }
-  },[game, player]);
-
-  
+  }, [game, player]);
 
   useEffect(() => {
     subscribe(`/topic/game.${game.gameId}`, onGameUpdate);
@@ -110,6 +109,10 @@ function GamePage() {
         setGameState(message);
         break;
 
+        case "game.throwCards":
+        console.log("Player threw cards:", message);
+        setGameState(message);
+        break;
       case "hand.update":
         console.log("Public hand update:", message);
 
@@ -241,10 +244,16 @@ function GamePage() {
     }
     return cards;
   }
-
+  
   function showCoins(pot) {
+    const images = [];
     if (pot < 10) {
-      return <img src="two_dollars.png" alt="dollars" />;
+      for (let i = 0; i < pot / 2; i++) {
+        images.push("another_two_dollars.png");
+      }
+      return images.map((image, index) => (
+        <img key={index} src={image} alt="dollars" className="-mt-10" />
+      ));
     } else {
       return <img src="many_dollars.png" alt="dollars" />;
     }
@@ -317,28 +326,23 @@ function GamePage() {
     navigate("/");
   }
 
+  function throwCards() {
+    send("/app/game.throwCards", {
+      gameId: gameState.gameId,
+      turnName: player.playerName,
+    });
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-table-background px-4 py-8">
       <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full max-w-7xl">
         <div className="w-full h-168 bg-poker-table rounded-[70px] shadow-2xl text-white px-6 sm:px-8">
           {/*Menügombok konténere */}
           <div className="w-full h-1/5 flex justify-around items-center relative -top-3">
-            <button
-              onClick={leaveGame}
-              className="text-blue-500 bg-green-200 font-bold text-3xl border-2 h-1/2 w-1/6"
-            >
-              Logout
-            </button>
-            <button className="text-blue-500 bg-green-200 font-bold text-3xl border-2 h-1/2 w-1/6">
-              Menu
-            </button>
+            <MenuButton onClick={leaveGame} buttonText="Logout" />
+            <MenuButton onClick={() => navigate("/")} buttonText="Menu" />
             {gameState.state === "NEW" && (
-              <button
-                onClick={getFirstCard}
-                className="text-blue-500 bg-green-200 font-bold text-3xl border-2 h-1/2 w-1/6"
-              >
-                New Deal
-              </button>
+              <MenuButton onClick={getFirstCard} buttonText="Deal!" />
             )}
           </div>
 
@@ -350,16 +354,18 @@ function GamePage() {
                 {/* Kezelőgombok helye */}
                 {gameState.turnName === player.playerName && (
                   <HandlerPanel
-                  onMoreCard={getMoreCard}
-                  onBetButton={handleBetButton}
-                  onChangeTurn={changeTurn}
-                  ownState={ownState}
-                  turnName={gameState.turnName}
-                  playerName={player.playerName}
-                  identifier={gameState.player4}
-                />
+                    onMoreCard={getMoreCard}
+                    onBetButton={handleBetButton}
+                    onChangeTurn={changeTurn}
+                    ownState={ownState}
+                    turnName={gameState.turnName}
+                    playerName={player.playerName}
+                    identifier={gameState.player2}
+                    cardNumber={gameState.player2CardNumber}
+                    onThrowCards={throwCards}
+                    gameState={gameState.state}
+                  />
                 )}
-                
 
                 {/* Kézben lévő lapok helye */}
                 <HandPlace
@@ -370,21 +376,21 @@ function GamePage() {
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player4PublicHand}
+                  playerPublicHand={player2PublicHand}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player4PublicHandValue}
-                  playerSeat="player4"
-                  playerBalance="player4Balance"
-                  cardNumber="player4CardNumber"
-                  location="top-2"
+                  playerPublicHandValue={player2PublicHandValue}
+                  playerSeat="player2"
+                  playerBalance="player2Balance"
+                  cardNumber="player2CardNumber"
+                  location="top-9"
                 />
 
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player4Pot}
-                  direction="flex-col-reverse"
+                  playerPot={gameState.player2Pot}
+                  direction="flex-col"
                 />
               </div>
 
@@ -399,6 +405,9 @@ function GamePage() {
                   turnName={gameState.turnName}
                   playerName={player.playerName}
                   identifier={gameState.player3}
+                  cardNumber={gameState.player3CardNumber}
+                  onThrowCards={throwCards}
+                  gameState={gameState.state}
                 />
 
                 {/* Kézben lévő lapok helye */}
@@ -487,7 +496,7 @@ function GamePage() {
                 <PotPlace
                   onShowCoins={showCoins}
                   playerPot={gameState.player1Pot}
-                  direction="flex-col-reverse"
+                  direction="flex-col"
                 />
 
                 {/* Kézben lévő lapok helye */}
@@ -517,6 +526,9 @@ function GamePage() {
                   turnName={gameState.turnName}
                   playerName={player.playerName}
                   identifier={gameState.player1}
+                  cardNumber={gameState.player1CardNumber}
+                  onThrowCards={throwCards}
+                  gameState={gameState.state}
                 />
               </div>
 
@@ -525,7 +537,7 @@ function GamePage() {
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player2Pot}
+                  playerPot={gameState.player4Pot}
                   direction="flex-col"
                 />
 
@@ -538,13 +550,13 @@ function GamePage() {
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player2PublicHand}
+                  playerPublicHand={player4PublicHand}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player2PublicHandValue}
-                  playerSeat="player2"
-                  playerBalance="player2Balance"
-                  cardNumber="player2CardNumber"
+                  playerPublicHandValue={player4PublicHandValue}
+                  playerSeat="player4"
+                  playerBalance="player4Balance"
+                  cardNumber="player4CardNumber"
                   location="top-76"
                 />
                 {/* Kezelőgombok helye */}
@@ -555,7 +567,10 @@ function GamePage() {
                   ownState={ownState}
                   turnName={gameState.turnName}
                   playerName={player.playerName}
-                  identifier={gameState.player2}
+                  identifier={gameState.player4}
+                  cardNumber={gameState.player4CardNumber}
+                  onThrowCards={throwCards}
+                  gameState={gameState.state}
                 />
               </div>
             </div>

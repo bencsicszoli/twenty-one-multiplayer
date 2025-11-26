@@ -5,7 +5,7 @@
 
 @layer utilities {
   .bg-poker-table {
-    background-color: #2f4a3a; /* darker, earthier green */
+    background-color: #2f4b3a; /* darker, earthier green */
     background-image: radial-gradient(circle at center, rgba(255, 255, 255, 0.05) 0%, transparent 70%),
       repeating-linear-gradient(
         45deg,
