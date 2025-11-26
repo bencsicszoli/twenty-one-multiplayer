@@ -13,9 +13,8 @@ function HandPlace({
   playerSeat,
   playerBalance,
   cardNumber,
-  location
+  location,
 }) {
-  
   return (
     <div className="w-2/3 h-full flex flex-col">
       <div className="w-full h-1/3 flex flex-col place-items-center justify-end">
@@ -25,20 +24,21 @@ function HandPlace({
           gameState[playerSeat] === player.playerName && (
             <form className={`absolute ${location}`} onSubmit={handleBet}>
               <input
-                className="bg-gray-400"
+                className="bg-gray-400 h-7 w-28 rounded-l-md"
                 onChange={(e) => onBet(e.target.value)}
                 type="number"
                 min="1"
-                max={gameState[playerBalance]}              />
-              <button className="bg-green-400 h-7 w-9" type="submit">
+                max={gameState[playerBalance]}
+              />
+              <button
+                className="bg-[#7fce9e] text-[#2f4b3a] font-bold h-7 w-9 rounded-r-md"
+                type="submit"
+              >
                 Bet
               </button>
             </form>
           )}
-        {gameState[playerSeat] && (
-          <p>Balance: {gameState[playerBalance]}</p>
-        )}
-        
+        {gameState[playerSeat] && <p>Balance: {gameState[playerBalance]}</p>}
       </div>
       {player && gameState[playerSeat] === player.playerName ? (
         <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
@@ -63,9 +63,7 @@ function HandPlace({
           <p>Sum: {ownHandValue}</p>
         ) : (
           <>
-            {playerPublicHand.length > 0 && (
-              <p>Sum: {playerPublicHandValue}</p>
-            )}
+            {playerPublicHand.length > 0 && <p>Sum: {playerPublicHandValue}</p>}
           </>
         )}
       </div>

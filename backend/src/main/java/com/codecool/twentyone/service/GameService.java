@@ -21,6 +21,7 @@ public class GameService {
     private final MessageService messageService;
 
     public GameService(GameRepository gameRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository, DealerHandRepository dealerHandRepository, DealerRepository dealerRepository, ShuffleRepository shuffleRepository, MessageService messageService) {
+
         this.gameRepository = gameRepository;
         this.playerRepository = playerRepository;
         this.playerHandRepository = playerHandRepository;
@@ -80,7 +81,7 @@ public class GameService {
             currentPlayer.setPlayerState(PlayerState.COULD_STOP);
         } else if (handValue > 19 && handValue < 22) {
             currentPlayer.setPlayerState(PlayerState.ENOUGH);
-            currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + "has standed"));
+            currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " has stood"));
         } else if (handValue == 22 && cardsNumber == 2) {
             currentPlayer.setPlayerState(PlayerState.FIRE);
             currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
@@ -131,7 +132,7 @@ public class GameService {
         currentPlayer.setPlayerState(PlayerState.ENOUGH);
         playerRepository.save(currentPlayer);
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
-        currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " stands");
+        currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " has stood");
         String[] players = {currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3(), currentGame.getPlayer4(), currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3()};
         for (int i = 0; i < 4; i++) {
             if (players[i] != null && players[i].equals(turnPlayerName)) {
@@ -311,8 +312,6 @@ public class GameService {
         }
         return new PublicHandsDTO(publicHandDTOList, "publicHands.update");
     }
-
-
 
     public String getNextTurnName(Long gameId, String turnPlayerName) {
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
@@ -587,5 +586,19 @@ public class GameService {
         }
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
+    }
+
+    @Transactional
+    public GameMessage throwCards(String playerName, Long gameId) {
+        Player playerWithFiveCards = playerRepository.findByPlayerName(playerName).orElseThrow(()-> new IllegalArgumentException("Player not found"));
+        playerHandRepository.deleteAllByPlayerId(playerWithFiveCards.getId());
+        playerWithFiveCards.setPlayerState(PlayerState.WAITING_CARD);
+        playerWithFiveCards.setCardNumber(0);
+        playerRepository.save(playerWithFiveCards);
+        Game currentGame = gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Game not found"));
+        currentGame.setInformation(playerName + " has thrown 5 card!");
+        gameRepository.save(currentGame);
+        return messageService.gameToMessage(currentGame);
+
     }
 }

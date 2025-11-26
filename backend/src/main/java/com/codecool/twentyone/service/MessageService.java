@@ -32,19 +32,19 @@ public class MessageService {
             Game existingGame = existingGameOpt.get();
             if (existingGame.getPlayer1() == null) {
                 existingGame.setPlayer1(player);
-                existingGame.setPlayer2Balance(100);
+                existingGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
                 return gameRepository.save(existingGame);
             } else if (existingGame.getPlayer2() == null) {
                 existingGame.setPlayer2(player);
-                existingGame.setPlayer2Balance(100);
+                existingGame.setPlayer2Balance(playerRepository.getBalanceByPlayerName(player));
                 return gameRepository.save(existingGame);
             } else if (existingGame.getPlayer3() == null) {
                 existingGame.setPlayer3(player);
-                existingGame.setPlayer3Balance(100);
+                existingGame.setPlayer3Balance(playerRepository.getBalanceByPlayerName(player));
                 return gameRepository.save(existingGame);
             } else {
                 existingGame.setPlayer4(player);
-                existingGame.setPlayer4Balance(100);
+                existingGame.setPlayer4Balance(playerRepository.getBalanceByPlayerName(player));
                 return gameRepository.save(existingGame);
             }
         }
@@ -55,7 +55,7 @@ public class MessageService {
         newGame.setPlayer2(null);
         newGame.setPlayer3(null);
         newGame.setPlayer4(null);
-        newGame.setPlayer1Balance(100);
+        newGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
         newGame.setPlayer2Balance(0);
         newGame.setPlayer3Balance(0);
         newGame.setPlayer4Balance(0);

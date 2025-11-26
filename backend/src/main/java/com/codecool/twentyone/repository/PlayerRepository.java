@@ -28,4 +28,7 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     @NativeQuery(value = "SELECT state FROM player WHERE player_name = ?1")
     PlayerState getPlayerStateByPlayerName(@Param("player_name") String playerName);
+
+    @NativeQuery(value = "SELECT balance FROM player WHERE player_name = ?1")
+    int getBalanceByPlayerName(@Param("player_name") String playerName);
 }
