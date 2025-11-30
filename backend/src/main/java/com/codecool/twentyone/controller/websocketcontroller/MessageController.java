@@ -56,22 +56,23 @@ public class MessageController {
         headerAccessor.getSessionAttributes().put("gameId", game.getGameId());
         headerAccessor.getSessionAttributes().put("player", message.playerName());
 
-
-
         GameMessage privateMsg = messageService.gameToMessage(game);
+        privateMsg.setType("game.joined");
         PublicHandsDTO publicHands;
         if (privateMsg.isPublicHand1Exists() || privateMsg.isPublicHand2Exists() || privateMsg.isPublicHand3Exists() || privateMsg.isPublicHand4Exists()) {
             publicHands = gameService.getPublicHandsByNewPlayer(game.getGameId());
-            messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands);
+            messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands); //nem jön meg
             messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", publicHands);
         }
-        privateMsg.setType("game.joined");
+
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", privateMsg);
 
+        /*
         GameMessage broadcastMsg = messageService.gameToMessage(game);
-
         broadcastMsg.setType("player.joined");
         messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), broadcastMsg);
+
+         */
     }
 
     @MessageMapping("/game.leave")
@@ -88,8 +89,12 @@ public class MessageController {
             dealerHand = gameService.getDealerHand(request.gameId());
             publicHands = gameService.getPublicHands(request.gameId());
         }
+
         message.setType("game.passTurn");
+        LeavingPlayerHandDTO playerHandDTO = new LeavingPlayerHandDTO(request.playerName(), List.of(), 0, "publicHand.update");
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message); // type: game.passTurn
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), playerHandDTO);
+
         if (dealerHand != null) {
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage); // type: game.dealerTurn
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand); // type: dealerHand.update
@@ -104,7 +109,9 @@ public class MessageController {
         ResetHandDTO resetPublicHandDTO = new ResetHandDTO("Reset public hands", "reset.publicHands");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), resetPublicHandDTO);
-        shuffleService.addShuffledDeck(request.gameId());
+        //shuffleService.addShuffledDeck(request.gameId());
+        //
+        shuffleService.useFakeDeck(request.gameId());
         Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
         game.setRemainingCards(32);
         game.setState(GameState.NEW);
@@ -211,6 +218,21 @@ public class MessageController {
         }
     }
 
+    @MessageMapping("/game.throwAce")
+    public void throwAce(@Payload NewCardRequestDTO request, Principal principal) {
+        String playerName = principal.getName();
+        if (playerName.equals(request.turnName())) {
+            GameMessage message = gameService.setContent(request.gameId(), playerName.toUpperCase() +
+                    " threw an Ace after announcing 'Ohne Ace'");
+            message.setType("game.throwAce");
+            PlayerHandDTO hand = gameService.throwAce(playerName);
+            messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+        } else {
+            throw new RuntimeException("Invalid turn");
+        }
+    }
+
     @MessageMapping("/game.passTurn")
     public void passTurn (@Payload PassTurnRequestDTO request) {
         GameMessage message = gameService.passTurn(request.gameId(), request.turnName());
@@ -234,7 +256,6 @@ public class MessageController {
 
     @MessageMapping("/game.raiseBet")
     public void raiseBet(@Payload RaiseBetDTO request) {
-        System.out.println("BET REQUEST: " + request);
         GameMessage message = gameService.raiseBet(request.gameId(), request.turnName(), Integer.parseInt(request.bet()));
         message.setType("game.raiseBet");
         PlayerStateDTO dto = gameService.getPlayerState(request.turnName());
@@ -250,6 +271,20 @@ public class MessageController {
             GameMessage message = gameService.throwCards(playerName, request.gameId());
             message.setType("game.throwCards");
             PlayerHandDTO dto = new PlayerHandDTO(PlayerState.WAITING_CARD, List.of(), 0, "hand.update");
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+            messagingTemplate.convertAndSendToUser(playerName, "/queue/private", dto);
+        } else {
+            throw new RuntimeException("Invalid turn");
+        }
+    }
+
+    @MessageMapping("/game.ohneAce")
+    public void setOhneAceState(@Payload NewCardRequestDTO request, Principal principal) {
+        String playerName = principal.getName();
+        if (playerName.equals(request.turnName())) {
+            PlayerStateDTO dto = gameService.setPlayerStateToOhneAce(playerName);
+            GameMessage message = gameService.setContent(request.gameId(), playerName.toUpperCase() + " announced 'Ohne Ace'");
+            message.setType("game.newContent");
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
             messagingTemplate.convertAndSendToUser(playerName, "/queue/private", dto);
         } else {

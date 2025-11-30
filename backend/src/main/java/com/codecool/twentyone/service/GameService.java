@@ -101,7 +101,7 @@ public class GameService {
                 currentGame.setPublicHand4Exists(true);
             }
 
-        } else if (handValue >= 22) {
+        } else if (handValue >= 22 && !currentPlayer.getPlayerState().equals(PlayerState.OHNE_ACE)) {
             currentPlayer.setPlayerState(PlayerState.MUCH);
             dealer.setBalance(dealer.getBalance() + currentPlayer.getPot());
             currentGame.setDealerBalance(dealer.getBalance());
@@ -166,7 +166,10 @@ public class GameService {
             cardDTOList.add(new CardDTO(card.getCardValue(), card.getFrontImagePath()));
         }
         int handValue = playerHandRepository.getHandValue(player.getId());
-        return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.update");
+        if (!player.getPlayerState().equals(PlayerState.OHNE_ACE)) {
+            return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.update");
+        }
+        return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.withOhneAce");
     }
 
     public PublicHandsDTO getPublicHandsByNewPlayer(Long gameId) {
@@ -371,15 +374,19 @@ public class GameService {
         List<Player> playerNamesWithActiveHands = new ArrayList<>();
         if (player1 != null && player1.getPlayerState().equals(PlayerState.ENOUGH)) {
             playerNamesWithActiveHands.add(player1);
+            currentGame.setPublicHand1Exists(true);
         }
         if (player2 != null && player2.getPlayerState().equals(PlayerState.ENOUGH)) {
             playerNamesWithActiveHands.add(player2);
+            currentGame.setPublicHand2Exists(true);
         }
         if (player3 != null && player3.getPlayerState().equals(PlayerState.ENOUGH)) {
             playerNamesWithActiveHands.add(player3);
+            currentGame.setPublicHand3Exists(true);
         }
         if (player4 != null && player4.getPlayerState().equals(PlayerState.ENOUGH)) {
             playerNamesWithActiveHands.add(player4);
+            currentGame.setPublicHand4Exists(true);
         }
         //System.out.println("PlayerNamesWithActiveHands: " + playerNamesWithActiveHands.getFirst().getPlayerName());
         if (playerNamesWithActiveHands.isEmpty()) {
@@ -515,6 +522,34 @@ public class GameService {
     }
 
     @Transactional
+    public PlayerStateDTO setPlayerStateToOhneAce(String playerName) {
+        playerRepository.setPlayerStateByPlayerName(playerName);
+        return new PlayerStateDTO((PlayerState.OHNE_ACE).toString(), "playerState.update");
+    }
+
+    public GameMessage setContent(Long gameId, String content) {
+        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        currentGame.setInformation(content);
+        gameRepository.save(currentGame);
+        return messageService.gameToMessage(currentGame);
+    }
+
+    @Transactional
+    public PlayerHandDTO throwAce(String playerName) {
+        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        playerHandRepository.deleteAceFromHand(player.getId());
+        player.setCardNumber(player.getCardNumber() - 1);
+        playerRepository.save(player);
+        List<PlayerHand> cards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        List<CardDTO> dtos = new ArrayList<>();
+        for (PlayerHand card : cards) {
+            CardDTO cardDTO = new CardDTO(card.getCardValue(), card.getFrontImagePath());
+            dtos.add(cardDTO);
+        }
+        return new PlayerHandDTO(PlayerState.WAITING_CARD, dtos, 11, "game.throwAce");
+    }
+
+    @Transactional
     public GameMessage leaveGame(Long gameId, String playerName) {
         Player leavingPlayer = playerRepository.findByPlayerName(playerName).orElseThrow(()-> new IllegalArgumentException("Player not found"));
         Game currentGame = gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Game not found"));
@@ -551,6 +586,11 @@ public class GameService {
                     currentGame.setTurnName(nextTurnName);
                 }
                 currentGame.setPlayer1(null);
+                currentGame.setPublicHand1Exists(false);
+                if (leavingPlayer.getPot() > 0) {
+                    dealerRepository.setDealerBalanceById(leavingPlayer.getPot(), currentGame.getDealerId());
+                    leavingPlayer.setPot(0);
+                }
                 playerRepository.save(leavingPlayer);
             } else if (playerName.equals(currentGame.getPlayer2())) {
                 playerHandRepository.deleteAllByPlayerId(leavingPlayer.getId());
@@ -561,6 +601,11 @@ public class GameService {
                     currentGame.setTurnName(nextTurnName);
                 }
                 currentGame.setPlayer2(null);
+                currentGame.setPublicHand2Exists(false);
+                if (leavingPlayer.getPot() > 0) {
+                    dealerRepository.setDealerBalanceById(leavingPlayer.getPot(), currentGame.getDealerId());
+                    leavingPlayer.setPot(0);
+                }
                 playerRepository.save(leavingPlayer);
             } else if (playerName.equals(currentGame.getPlayer3())) {
                 playerHandRepository.deleteAllByPlayerId(leavingPlayer.getId());
@@ -571,6 +616,11 @@ public class GameService {
                     currentGame.setTurnName(nextTurnName);
                 }
                 currentGame.setPlayer3(null);
+                currentGame.setPublicHand3Exists(false);
+                if (leavingPlayer.getPot() > 0) {
+                    dealerRepository.setDealerBalanceById(leavingPlayer.getPot(), currentGame.getDealerId());
+                    leavingPlayer.setPot(0);
+                }
                 playerRepository.save(leavingPlayer);
             } else if (playerName.equals(currentGame.getPlayer4())) {
                 playerHandRepository.deleteAllByPlayerId(leavingPlayer.getId());
@@ -581,6 +631,11 @@ public class GameService {
                     currentGame.setTurnName(nextTurnName);
                 }
                 currentGame.setPlayer4(null);
+                currentGame.setPublicHand4Exists(false);
+                if (leavingPlayer.getPot() > 0) {
+                    dealerRepository.setDealerBalanceById(leavingPlayer.getPot(), currentGame.getDealerId());
+                    leavingPlayer.setPot(0);
+                }
                 playerRepository.save(leavingPlayer);
             }
         }
@@ -596,7 +651,7 @@ public class GameService {
         playerWithFiveCards.setCardNumber(0);
         playerRepository.save(playerWithFiveCards);
         Game currentGame = gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Game not found"));
-        currentGame.setInformation(playerName + " has thrown 5 card!");
+        currentGame.setInformation(playerName.toUpperCase() + " has thrown 5 card!");
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
 

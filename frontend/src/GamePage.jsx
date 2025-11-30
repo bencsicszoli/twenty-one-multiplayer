@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { useWebSocket } from "./context/WebSocketContext";
 import { usePlayer } from "./context/PlayerContext";
-import HandlerPanel from "./HandlerPanel";
-import PotPlace from "./PotPlace";
-import HandPlace from "./HandPlace";
+import HandlerPanel from "./gameComponents/HandlerPanel";
+import PotPlace from "./gameComponents/PotPlace";
+import HandPlace from "./gameComponents/HandPlace";
 import { useNavigate } from "react-router-dom";
-import MenuButton from "./MenuButton";
+import MenuButton from "./gameComponents/MenuButton";
+import DealerHandPlace from "./gameComponents/DealerHandPlace";
+import RemainingCardsPlace from "./gameComponents/RemainingCardsPlace";
+import MessagesPlace from "./gameComponents/MessagesPlace";
 
 function GamePage() {
   const location = useLocation();
@@ -17,9 +20,12 @@ function GamePage() {
   const [ownHand, setOwnHand] = useState([]);
   const [ownHandValue, setOwnHandValue] = useState(0);
   const [ownState, setOwnState] = useState("WAITING_CARD");
+  const [ohneAceAnnounced, setOhneAceAnnounced] = useState(false);
   const [bet, setBet] = useState(0);
   const [betButtonClicked, setBetButtonClicked] = useState(false);
   const [dealerHand, setDealerHand] = useState([]);
+  const [dealerShownCards, setDealerShownCards] = useState([]);
+  const [dealerShownHandValue, setDealerShownHandValue] = useState(0);
   const [dealerHandValue, setDealerHandValue] = useState(0);
   const [player1PublicHandValue, setPlayer1PublicHandValue] = useState(0);
   const [player2PublicHandValue, setPlayer2PublicHandValue] = useState(0);
@@ -31,6 +37,7 @@ function GamePage() {
   const [player4PublicHand, setPlayer4PublicHand] = useState([]);
 
   const navigate = useNavigate();
+  const mounted = useRef(false);
 
   useEffect(() => {
     if (!game || !player) {
@@ -41,7 +48,7 @@ function GamePage() {
   useEffect(() => {
     subscribe(`/topic/game.${game.gameId}`, onGameUpdate);
     subscribe("/user/queue/private", onHandUpdate);
-  }, [game]);
+  }, [game, subscribe]);
 
   function onHandUpdate(payload) {
     const message = JSON.parse(payload.body);
@@ -66,8 +73,20 @@ function GamePage() {
         setOwnHand([]);
         setOwnHandValue(0);
         break;
+      case "hand.withOhneAce":
+        console.log("Hand ohne ace:", message);
+        setOwnHand(message.cards);
+        setOwnHandValue(message.handValue);
+        setOwnState(message.playerState);
+        break;
       case "playerState.update":
         console.log("PlayerState update: ", message);
+        setOwnState(message.playerState);
+        break;
+      case "game.throwAce":
+        console.log("Player threw ace:", message);
+        setOwnHand(message.cards);
+        setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
         break;
       case "publicHands.update":
@@ -102,14 +121,21 @@ function GamePage() {
       case "game.firstCard":
         console.log("First card dealt:", message);
         setGameState(message);
+        setDealerShownCards([]);
+        setDealerShownHandValue(0);
+        setOhneAceAnnounced(false);
+        mounted.current = false;
         break;
-
+      case "game.throwAce":
+        console.log("Player threw ace:", message);
+        setGameState(message);
+        break;
       case "game.pullCard":
         console.log("Next card:", message);
         setGameState(message);
         break;
 
-        case "game.throwCards":
+      case "game.throwCards":
         console.log("Player threw cards:", message);
         setGameState(message);
         break;
@@ -118,23 +144,22 @@ function GamePage() {
 
         setGameState((prev) => {
           // prev = LEGFRISSEBB gameState, nem a régi bezárt closure!
-          if (message.playerState === "MUCH") {
-            if (prev.turnName === prev.player1) {
-              console.log(">>> Updating Player1 public hand");
-              setPlayer1PublicHand(message.cards);
-              setPlayer1PublicHandValue(message.handValue);
-            } else if (prev.turnName === prev.player2) {
-              console.log(">>> Updating Player2 public hand");
-              setPlayer2PublicHand(message.cards);
-              setPlayer2PublicHandValue(message.handValue);
-            } else if (prev.turnName === prev.player3) {
-              console.log(">>> Updating Player3 public hand");
-              setPlayer3PublicHand(message.cards);
-              setPlayer3PublicHandValue(message.handValue);
-            } else if (prev.tornName === prev.player4) {
-              setPlayer4PublicHand(message.cards);
-              setPlayer4PublicHandValue(message.handValue);
-            }
+
+          if (prev.turnName === prev.player1) {
+            console.log(">>> Updating Player1 public hand");
+            setPlayer1PublicHand(message.cards);
+            setPlayer1PublicHandValue(message.handValue);
+          } else if (prev.turnName === prev.player2) {
+            console.log(">>> Updating Player2 public hand");
+            setPlayer2PublicHand(message.cards);
+            setPlayer2PublicHandValue(message.handValue);
+          } else if (prev.turnName === prev.player3) {
+            console.log(">>> Updating Player3 public hand");
+            setPlayer3PublicHand(message.cards);
+            setPlayer3PublicHandValue(message.handValue);
+          } else if (prev.tornName === prev.player4) {
+            setPlayer4PublicHand(message.cards);
+            setPlayer4PublicHandValue(message.handValue);
           }
 
           // gameState ezen üzenet alatt nem változik, úgyhogy visszaadjuk a régit
@@ -152,9 +177,23 @@ function GamePage() {
         setGameState(message);
         break;
       case "dealerHand.update":
+        /*
         console.log("Dealer hand update:", message);
-        setDealerHand(message.cards);
-        setDealerHandValue(message.handValue);
+        setDealerShownCards([]);
+        if (!dealerShownCardsIsFull) {
+          showDealerHand(message.cards);
+          setDealerShownCardsIsFull(true);
+        }
+          */
+        if (!mounted.current) {
+          mounted.current = true;
+          showDealerHand(message.cards);
+        }
+
+        console.log("showDealerHand called");
+
+        //setDealerHand(message.cards);
+        //setDealerHandValue(message.handValue);
         break;
       case "publicHands.update":
         console.log("Public hands update:", message);
@@ -178,9 +217,41 @@ function GamePage() {
         console.log("Raise bet: ", message);
         setGameState(message);
         break;
+      case "publicHand.update":
+        console.log("Single public hand update:", message);
+        if (message.playerName === gameState.player1) {
+          setPlayer1PublicHand(message.cards);
+          setPlayer1PublicHandValue(message.handValue);
+        } else if (message.playerName === gameState.player2) {
+          setPlayer2PublicHand(message.cards);
+          setPlayer2PublicHandValue(message.handValue);
+        } else if (message.playerName === gameState.player3) {
+          setPlayer3PublicHand(message.cards);
+          setPlayer3PublicHandValue(message.handValue);
+        } else if (message.playerName === gameState.player4) {
+          setPlayer4PublicHand(message.cards);
+          setPlayer4PublicHandValue(message.handValue);
+        }
+        break;
+      case "game.newContent":
+        console.log("New content: ", message);
+        setGameState(message);
+        break;
       default:
         console.log("Unknown message type:", message.type);
     }
+  }
+
+  function showDealerHand(dealerHand) {
+    setDealerShownCards([]);
+    dealerHand.forEach((card, index) => {
+      setTimeout(() => {
+        setDealerShownCards((prev) => [...prev, card]);
+      }, 750 * index);
+      setTimeout(() => {
+        setDealerShownHandValue((prev) => prev + card.cardValue);
+      }, 750 * index);
+    });
   }
 
   function showHand(hand) {
@@ -198,12 +269,33 @@ function GamePage() {
           </div>
         );
       } else {
-        return (
-          <div key={index} className="inline-block mx-1">
-            <img src={card.frontImagePath} alt={card} className="h-24" />
-          </div>
-        );
+        if (ownState === "OHNE_ACE" && card.cardValue === 11) {
+          return (
+            <div key={index} className="inline-block mx-1">
+              <img
+                src={card.frontImagePath}
+                alt={card}
+                className="h-24"
+                onClick={throwAce}
+              />
+            </div>
+          );
+        } else {
+          return (
+            <div key={index} className="inline-block mx-1">
+              <img src={card.frontImagePath} alt={card} className="h-24" />
+            </div>
+          );
+        }
       }
+    });
+  }
+
+  function throwAce() {
+    console.log("Ace clicked to throw away");
+    send("/app/game.throwAce", {
+      gameId: gameState.gameId,
+      turnName: player.playerName,
     });
   }
 
@@ -244,7 +336,7 @@ function GamePage() {
     }
     return cards;
   }
-  
+
   function showCoins(pot) {
     const images = [];
     if (pot < 10) {
@@ -260,12 +352,9 @@ function GamePage() {
   }
 
   function getFirstCard() {
-    setOwnHand([]);
-    setOwnHandValue(0);
-    setPlayer1PublicHand([]);
-    setPlayer2PublicHand([]);
-    setPlayer3PublicHand([]);
-    setPlayer4PublicHand([]);
+    //setOwnHand([]);
+    //setOwnHandValue(0);
+
     send("/app/game.firstRound", { gameId: gameState.gameId });
   }
 
@@ -333,6 +422,14 @@ function GamePage() {
     });
   }
 
+  function setOhneAceState() {
+    send("/app/game.ohneAce", {
+      gameId: gameState.gameId,
+      turnName: player.playerName,
+    });
+    setOhneAceAnnounced(true);
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-table-background px-4 py-8">
       <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full max-w-7xl">
@@ -364,6 +461,9 @@ function GamePage() {
                     cardNumber={gameState.player2CardNumber}
                     onThrowCards={throwCards}
                     gameState={gameState.state}
+                    ownHandValue={ownHandValue}
+                    onSetOhneAce={setOhneAceState}
+                    ohneAceAnnounced={ohneAceAnnounced}
                   />
                 )}
 
@@ -408,6 +508,9 @@ function GamePage() {
                   cardNumber={gameState.player3CardNumber}
                   onThrowCards={throwCards}
                   gameState={gameState.state}
+                  ownHandValue={ownHandValue}
+                  onSetOhneAce={setOhneAceState}
+                  ohneAceAnnounced={ohneAceAnnounced}
                 />
 
                 {/* Kézben lévő lapok helye */}
@@ -439,55 +542,25 @@ function GamePage() {
             </div>
             <div className="w-[24%] h-full flex flex-col">
               {/* RemainingCards helye */}
-              <div className="w-full h-1/4 flex flex-col">
-                <div className="w-full h-1/5">
-                  <p className="text-center font-semibold">
-                    Remaining cards: {gameState.remainingCards}
-                  </p>
-                </div>
-                <div className="w-full h-4/5 flex place-items-center flex-wrap justify-center">
-                  {showRemainingCards(gameState.remainingCards)}
-                </div>
-              </div>
+              <RemainingCardsPlace
+                gameState={gameState}
+                onShowRemainingCards={showRemainingCards}
+              />
 
               {/* Osztó terepe */}
-              <div className="w-full h-1/2">
-                <div className="w-full h-full flex flex-col">
-                  <div className="w-full h-1/3 flex flex-col place-items-center justify-end">
-                    <p>Dealer</p>
-                    <p>Balance: {gameState.dealerBalance}</p>
-                  </div>
-                  {gameState.turnName === "Dealer" ? (
-                    <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-                      {showHand(dealerHand)}
-                    </div>
-                  ) : (
-                    <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-                      {showCardBacks(gameState.dealerCardNumber)}
-                    </div>
-                  )}
-
-                  <div className="w-full h-1/6 flex justify-around">
-                    {gameState.turnName === "Dealer" && (
-                      <p>Sum: {dealerHandValue}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
+              <DealerHandPlace
+                gameState={gameState}
+                onShowHand={showHand}
+                onShowCardBacks={showCardBacks}
+                dealerShownCards={dealerShownCards}
+                dealerShownHandValue={dealerShownHandValue}
+              />
 
               {/* Értesítések helye */}
-              <div className="w-full h-[25%] flex flex-col">
-                <div className="w-full h-1/3 flex justify-around place-items-center">
-                  <p className="text-center text-2xl font-bold whitespace-pre">
-                    Turn: {`  ${gameState.turnName.toUpperCase()}`}
-                  </p>
-                </div>
-                <div className="w-full h-2/3 flex justify-around place-items-center">
-                  <p className="text-center text-base font-bold">
-                    {displayInformation(gameState.content)}
-                  </p>
-                </div>
-              </div>
+              <MessagesPlace
+                gameState={gameState}
+                onDisplayInformation={displayInformation}
+              />
             </div>
             <div className="w-[38%] h-full flex flex-col">
               {/* Jobb felső játékos terepe */}
@@ -529,6 +602,9 @@ function GamePage() {
                   cardNumber={gameState.player1CardNumber}
                   onThrowCards={throwCards}
                   gameState={gameState.state}
+                  ownHandValue={ownHandValue}
+                  onSetOhneAce={setOhneAceState}
+                  ohneAceAnnounced={ohneAceAnnounced}
                 />
               </div>
 
@@ -571,6 +647,9 @@ function GamePage() {
                   cardNumber={gameState.player4CardNumber}
                   onThrowCards={throwCards}
                   gameState={gameState.state}
+                  ownHandValue={ownHandValue}
+                  onSetOhneAce={setOhneAceState}
+                  ohneAceAnnounced={ohneAceAnnounced}
                 />
               </div>
             </div>
