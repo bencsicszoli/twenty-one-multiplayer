@@ -24,4 +24,7 @@ public interface GameRepository extends JpaRepository<Game, Long> {
             "SELECT player3 FROM game WHERE game_id = ?1 and player3 IS NOT NULL")
     List<String> findPlayerNames (@Param("game_id") Long gameId);
 
+    @NativeQuery (value = "SELECT CASE WHEN player1 = ?1 THEN 'player1' WHEN player2 = ?1 THEN 'player2' WHEN player3 = ?1 THEN 'player3' WHEN player4 = ?1 THEN 'player4' END AS found_column FROM game WHERE ?1 IN (player1, player2, player3, player4)")
+    String findColumnByPlayerName(String playerName);
+
 }

@@ -20,4 +20,8 @@ public interface DealerRepository extends JpaRepository<Dealer, Long> {
     @Modifying
     @NativeQuery(value = "UPDATE dealer SET card_number = 0 WHERE id = ?1")
     void setCardNumberById(@Param("id") Long id);
+
+    @Modifying
+    @NativeQuery(value = "UPDATE dealer SET balance = balance + ?1 WHERE id = ?2")
+    void setDealerBalanceById(int pot, @Param("id") Long id);
 }

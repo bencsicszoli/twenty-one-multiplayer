@@ -3,9 +3,12 @@ package com.codecool.twentyone.repository;
 import com.codecool.twentyone.model.entities.Player;
 import com.codecool.twentyone.model.entities.PlayerState;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Optional;
 
 @Repository
@@ -31,4 +34,9 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     @NativeQuery(value = "SELECT balance FROM player WHERE player_name = ?1")
     int getBalanceByPlayerName(@Param("player_name") String playerName);
+
+
+    @Modifying
+    @NativeQuery(value = "UPDATE player SET state = 'OHNE_ACE' WHERE player_name = ?1")
+    void setPlayerStateByPlayerName(@Param("player_name") String playerName);
 }
