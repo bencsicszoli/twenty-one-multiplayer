@@ -1,6 +1,5 @@
 package com.codecool.twentyone;
 
-import com.codecool.twentyone.service.GameService;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 

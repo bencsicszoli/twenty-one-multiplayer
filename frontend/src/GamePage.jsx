@@ -27,20 +27,13 @@ function GamePage() {
   const [dealerShownCards, setDealerShownCards] = useState([]);
   const [dealerShownHandValue, setDealerShownHandValue] = useState(0);
   const [dealerHandValue, setDealerHandValue] = useState(0);
-  const [player1PublicHandValue, setPlayer1PublicHandValue] = useState(0);
-  const [player2PublicHandValue, setPlayer2PublicHandValue] = useState(0);
-  const [player3PublicHandValue, setPlayer3PublicHandValue] = useState(0);
-  const [player4PublicHandValue, setPlayer4PublicHandValue] = useState(0);
-  const [player1PublicHand, setPlayer1PublicHand] = useState([]);
-  const [player2PublicHand, setPlayer2PublicHand] = useState([]);
-  const [player3PublicHand, setPlayer3PublicHand] = useState([]);
-  const [player4PublicHand, setPlayer4PublicHand] = useState([]);
+  const [dealerTurnFinished, setDealerTurnFinished] = useState(false);
 
   const navigate = useNavigate();
   const mounted = useRef(false);
 
   useEffect(() => {
-    if (!game || !player) {
+    if (game === null || player === null) {
       navigate("/");
     }
   }, [game, player]);
@@ -54,16 +47,27 @@ function GamePage() {
     const message = JSON.parse(payload.body);
     console.log("Private topic update:", message);
     switch (message.type) {
-      case "hand.firstUpdate":
+      case "hand.firstUpdate": //privát első osztás
         setOwnHand(message.cards);
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
         break;
-      case "game.joined":
+      case "game.joined": //privát csatlakozás, ugyanaz, mint a publikus pullCard-é
         console.log("Joined game:", message);
         setGameState(message);
+        setDealerShownCards(message.dealerPublicHand.cards);
+        setDealerShownHandValue(message.dealerPublicHand.handValue); //setOwnState???
+        /*
+        if (message.dealerPublicHand !== null) {
+          if (!mounted.current) {
+            mounted.current = true;
+            showDealerHand(message.dealerPublicHand.cards);
+            console.log("showDealerHand called");
+          }
+        }
+          */
         break;
-      case "hand.update":
+      case "hand.update": //privát kéz frissítés
         setOwnHand(message.cards);
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
@@ -73,32 +77,21 @@ function GamePage() {
         setOwnHand([]);
         setOwnHandValue(0);
         break;
-      case "hand.withOhneAce":
+      case "hand.withOhneAce":                  //privát kéz frissítés ohne ace állapotban
         console.log("Hand ohne ace:", message);
         setOwnHand(message.cards);
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
         break;
-      case "playerState.update":
+      case "playerState.update":                        //playerState változtatás, ohne ásznál használom
         console.log("PlayerState update: ", message);
         setOwnState(message.playerState);
         break;
-      case "game.throwAce":
+      case "game.throwAce":                          //privát ász eldobás
         console.log("Player threw ace:", message);
         setOwnHand(message.cards);
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
-        break;
-      case "publicHands.update":
-        console.log("Public hands update:", message);
-        setPlayer1PublicHand(message.publicHands[0].cards);
-        setPlayer1PublicHandValue(message.publicHands[0].handValue);
-        setPlayer2PublicHand(message.publicHands[1].cards);
-        setPlayer2PublicHandValue(message.publicHands[1].handValue);
-        setPlayer3PublicHand(message.publicHands[2].cards);
-        setPlayer3PublicHandValue(message.publicHands[2].handValue);
-        setPlayer4PublicHand(message.publicHands[3].cards);
-        setPlayer4PublicHandValue(message.publicHands[3].handValue);
         break;
       default:
         console.log("Unknown private message type:", message.type);
@@ -110,72 +103,74 @@ function GamePage() {
     console.log("Game update:", message);
 
     switch (message.type) {
-      case "player.joined":
+      case "player.joined": //publikus csatlakozás, ugyanaz, mint a pullCard-é
         console.log("Another player joined:", message);
         setGameState(message);
+        if (message.dealerPublicHand !== null) {
+          if (!mounted.current) {
+            mounted.current = true;
+            showDealerHand(message.dealerPublicHand.cards);
+            console.log("showDealerHand called");
+          }
+        }
         break;
-      case "player.leaved":
+      case "player.leaved":           //publikus, ugyanaz, mint a pullCard-é
         console.log("Player leaved");
         setGameState(message);
+        if (message.dealerPublicHand !== null) {
+          if (!mounted.current) {
+            mounted.current = true;
+            showDealerHand(message.dealerPublicHand.cards);
+            console.log("showDealerHand called");
+          }
+        }
         break;
-      case "game.firstCard":
+      case "game.firstCard": //publikus első osztás
         console.log("First card dealt:", message);
         setGameState(message);
         setDealerShownCards([]);
         setDealerShownHandValue(0);
         setOhneAceAnnounced(false);
+        setDealerTurnFinished(false);
         mounted.current = false;
         break;
-      case "game.throwAce":
+      case "game.throwAce":                       //publikus, értesít az ász eldobásáról
         console.log("Player threw ace:", message);
         setGameState(message);
         break;
-      case "game.pullCard":
+      case "game.pullCard": //publikus következő lap
         console.log("Next card:", message);
         setGameState(message);
+        if (message.dealerPublicHand !== null) {
+          if (!mounted.current) {
+            mounted.current = true;
+            showDealerHand(message.dealerPublicHand.cards);
+            console.log("showDealerHand called");
+          }
+        }
         break;
 
-      case "game.throwCards":
+      case "game.throwCards":                        //publikus, értesít az 5 lap eldobásáról
         console.log("Player threw cards:", message);
         setGameState(message);
         break;
-      case "hand.update":
-        console.log("Public hand update:", message);
-
-        setGameState((prev) => {
-          // prev = LEGFRISSEBB gameState, nem a régi bezárt closure!
-
-          if (prev.turnName === prev.player1) {
-            console.log(">>> Updating Player1 public hand");
-            setPlayer1PublicHand(message.cards);
-            setPlayer1PublicHandValue(message.handValue);
-          } else if (prev.turnName === prev.player2) {
-            console.log(">>> Updating Player2 public hand");
-            setPlayer2PublicHand(message.cards);
-            setPlayer2PublicHandValue(message.handValue);
-          } else if (prev.turnName === prev.player3) {
-            console.log(">>> Updating Player3 public hand");
-            setPlayer3PublicHand(message.cards);
-            setPlayer3PublicHandValue(message.handValue);
-          } else if (prev.tornName === prev.player4) {
-            setPlayer4PublicHand(message.cards);
-            setPlayer4PublicHandValue(message.handValue);
-          }
-
-          // gameState ezen üzenet alatt nem változik, úgyhogy visszaadjuk a régit
-          return prev;
-        });
-
-        break;
-      case "game.passTurn":
+      case "game.passTurn":                 //publikus, ugyanaz, mint a pullCard-é
         console.log("Next turn:", message);
         setGameState(message);
+        if (message.dealerPublicHand !== null) {
+          if (!mounted.current) {
+            mounted.current = true;
+            showDealerHand(message.dealerPublicHand.cards);
+            console.log("showDealerHand called");
+          }
+        }
         break;
 
       case "game.dealerTurn":
         console.log("Dealer's turn:", message);
         setGameState(message);
         break;
+      /*
       case "dealerHand.update":
         /*
         console.log("Dealer hand update:", message);
@@ -184,10 +179,10 @@ function GamePage() {
           showDealerHand(message.cards);
           setDealerShownCardsIsFull(true);
         }
-          */
+          
         if (!mounted.current) {
           mounted.current = true;
-          showDealerHand(message.cards);
+          showDealerHand(message.dealerPublicHand.cards);
         }
 
         console.log("showDealerHand called");
@@ -195,45 +190,12 @@ function GamePage() {
         //setDealerHand(message.cards);
         //setDealerHandValue(message.handValue);
         break;
-      case "publicHands.update":
-        console.log("Public hands update:", message);
-        setPlayer1PublicHand(message.publicHands[0].cards);
-        setPlayer1PublicHandValue(message.publicHands[0].handValue);
-        setPlayer2PublicHand(message.publicHands[1].cards);
-        setPlayer2PublicHandValue(message.publicHands[1].handValue);
-        setPlayer3PublicHand(message.publicHands[2].cards);
-        setPlayer3PublicHandValue(message.publicHands[2].handValue);
-        setPlayer4PublicHand(message.publicHands[3].cards);
-        setPlayer4PublicHandValue(message.publicHands[3].handValue);
-        break;
-      case "reset.publicHands":
-        console.log("Resetting public hands: ", message.message);
-        setPlayer1PublicHand([]);
-        setPlayer2PublicHand([]);
-        setPlayer3PublicHand([]);
-        setPlayer4PublicHand([]);
-        break;
-      case "game.raiseBet":
+        */
+      case "game.raiseBet":                   //publikus, tétrakás után
         console.log("Raise bet: ", message);
         setGameState(message);
         break;
-      case "publicHand.update":
-        console.log("Single public hand update:", message);
-        if (message.playerName === gameState.player1) {
-          setPlayer1PublicHand(message.cards);
-          setPlayer1PublicHandValue(message.handValue);
-        } else if (message.playerName === gameState.player2) {
-          setPlayer2PublicHand(message.cards);
-          setPlayer2PublicHandValue(message.handValue);
-        } else if (message.playerName === gameState.player3) {
-          setPlayer3PublicHand(message.cards);
-          setPlayer3PublicHandValue(message.handValue);
-        } else if (message.playerName === gameState.player4) {
-          setPlayer4PublicHand(message.cards);
-          setPlayer4PublicHandValue(message.handValue);
-        }
-        break;
-      case "game.newContent":
+      case "game.newContent":                      //Infotábla változás, ohne Ásznél használom
         console.log("New content: ", message);
         setGameState(message);
         break;
@@ -252,6 +214,7 @@ function GamePage() {
         setDealerShownHandValue((prev) => prev + card.cardValue);
       }, 750 * index);
     });
+    setDealerTurnFinished(true);
   }
 
   function showHand(hand) {
@@ -275,8 +238,9 @@ function GamePage() {
               <img
                 src={card.frontImagePath}
                 alt={card}
-                className="h-24"
+                className="h-24 transition-transform duration-200 hover:-translate-y-1 hover:scale-105 cursor-pointer"
                 onClick={throwAce}
+                
               />
             </div>
           );
@@ -430,6 +394,14 @@ function GamePage() {
     setOhneAceAnnounced(true);
   }
 
+  function backToMenu() {
+    send("/app/game.leave", {
+      gameId: gameState.gameId,
+      playerName: player.playerName,
+    });
+    navigate("/menu");
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-table-background px-4 py-8">
       <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full max-w-7xl">
@@ -437,7 +409,7 @@ function GamePage() {
           {/*Menügombok konténere */}
           <div className="w-full h-1/5 flex justify-around items-center relative -top-3">
             <MenuButton onClick={leaveGame} buttonText="Logout" />
-            <MenuButton onClick={() => navigate("/")} buttonText="Menu" />
+            <MenuButton onClick={backToMenu} buttonText="Menu" />
             {gameState.state === "NEW" && (
               <MenuButton onClick={getFirstCard} buttonText="Deal!" />
             )}
@@ -464,22 +436,23 @@ function GamePage() {
                     ownHandValue={ownHandValue}
                     onSetOhneAce={setOhneAceState}
                     ohneAceAnnounced={ohneAceAnnounced}
+                    betButtonClicked={betButtonClicked}
                   />
                 )}
 
                 {/* Kézben lévő lapok helye */}
                 <HandPlace
                   gameState={gameState}
-                  onBetButtonClicked={betButtonClicked}
+                  betButtonClicked={betButtonClicked}
                   player={player}
                   handleBet={handleBet}
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player2PublicHand}
+                  playerPublicHand={gameState.player2PublicHand.cards}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player2PublicHandValue}
+                  playerPublicHandValue={gameState.player2PublicHand.handValue}
                   playerSeat="player2"
                   playerBalance="player2Balance"
                   cardNumber="player2CardNumber"
@@ -511,21 +484,22 @@ function GamePage() {
                   ownHandValue={ownHandValue}
                   onSetOhneAce={setOhneAceState}
                   ohneAceAnnounced={ohneAceAnnounced}
+                  betButtonClicked={betButtonClicked}
                 />
 
                 {/* Kézben lévő lapok helye */}
                 <HandPlace
                   gameState={gameState}
-                  onBetButtonClicked={betButtonClicked}
+                  betButtonClicked={betButtonClicked}
                   player={player}
                   handleBet={handleBet}
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player3PublicHand}
+                  playerPublicHand={gameState.player3PublicHand.cards}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player3PublicHandValue}
+                  playerPublicHandValue={gameState.player3PublicHand.handValue}
                   playerSeat="player3"
                   playerBalance="player3Balance"
                   cardNumber="player3CardNumber"
@@ -575,16 +549,16 @@ function GamePage() {
                 {/* Kézben lévő lapok helye */}
                 <HandPlace
                   gameState={gameState}
-                  onBetButtonClicked={betButtonClicked}
+                  betButtonClicked={betButtonClicked}
                   player={player}
                   handleBet={handleBet}
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player1PublicHand}
+                  playerPublicHand={gameState.player1PublicHand.cards}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player1PublicHandValue}
+                  playerPublicHandValue={gameState.player1PublicHand.handValue}
                   playerSeat="player1"
                   playerBalance="player1Balance"
                   cardNumber="player1CardNumber"
@@ -605,6 +579,7 @@ function GamePage() {
                   ownHandValue={ownHandValue}
                   onSetOhneAce={setOhneAceState}
                   ohneAceAnnounced={ohneAceAnnounced}
+                  betButtonClicked={betButtonClicked}
                 />
               </div>
 
@@ -620,16 +595,16 @@ function GamePage() {
                 {/* Kézben lévő lapok helye */}
                 <HandPlace
                   gameState={gameState}
-                  onBetButtonClicked={betButtonClicked}
+                  betButtonClicked={betButtonClicked}
                   player={player}
                   handleBet={handleBet}
                   onBet={setBet}
                   onShowHand={showHand}
                   ownHand={ownHand}
-                  playerPublicHand={player4PublicHand}
+                  playerPublicHand={gameState.player4PublicHand.cards}
                   onShowCardBacks={showCardBacks}
                   ownHandValue={ownHandValue}
-                  playerPublicHandValue={player4PublicHandValue}
+                  playerPublicHandValue={gameState.player4PublicHand.handValue}
                   playerSeat="player4"
                   playerBalance="player4Balance"
                   cardNumber="player4CardNumber"
@@ -650,6 +625,7 @@ function GamePage() {
                   ownHandValue={ownHandValue}
                   onSetOhneAce={setOhneAceState}
                   ohneAceAnnounced={ohneAceAnnounced}
+                  betButtonClicked={betButtonClicked}
                 />
               </div>
             </div>

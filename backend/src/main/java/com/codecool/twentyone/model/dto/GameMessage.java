@@ -30,12 +30,12 @@ public class GameMessage {
     private int dealerBalance;
     private int dealerCardNumber;
     private int remainingCards;
-    private boolean publicHand1Exists = false;
-    private boolean publicHand2Exists = false;
-    private boolean publicHand3Exists = false;
-    private boolean publicHand4Exists = false;
+    private PublicHandDTO player1PublicHand;
+    private PublicHandDTO player2PublicHand;
+    private PublicHandDTO player3PublicHand;
+    private PublicHandDTO player4PublicHand;
+    private DealerHandDTO dealerPublicHand;
     private String type;
-    private String senderName;
     private String turnName;
     private String content;
     private String state;
