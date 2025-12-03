@@ -29,6 +29,7 @@ public class Game {
     private boolean publicHand2Exists = false;
     private boolean publicHand3Exists = false;
     private boolean publicHand4Exists = false;
+    private int cardOrder = 1;
 
     @Enumerated(EnumType.STRING)
     @Column(name="game_state")

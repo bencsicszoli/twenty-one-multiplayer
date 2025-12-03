@@ -1,6 +1,6 @@
 function HandPlace({
   gameState,
-  onBetButtonClicked,
+  betButtonClicked,
   player,
   handleBet,
   onBet,
@@ -15,11 +15,12 @@ function HandPlace({
   cardNumber,
   location,
 }) {
+
   return (
     <div className="w-2/3 h-full flex flex-col">
       <div className="w-full h-1/3 flex flex-col place-items-center justify-end">
         <p>{gameState[playerSeat]}</p>
-        {onBetButtonClicked &&
+        {betButtonClicked &&
           player &&
           gameState[playerSeat] === player.playerName && (
             <form className={`absolute ${location}`} onSubmit={handleBet}>
@@ -31,7 +32,7 @@ function HandPlace({
                 max={gameState[playerBalance]}
               />
               <button
-                className="bg-[#7fce9e] text-[#2f4b3a] font-bold h-7 w-9 rounded-r-md"
+                className="bg-[#7fce9e] text-[#2f4b3a] font-bold h-7 w-9 rounded-r-md hover:scale-110 cursor-pointer relative -top-px"
                 type="submit"
               >
                 Bet

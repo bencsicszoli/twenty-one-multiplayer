@@ -1,9 +1,8 @@
 package com.codecool.twentyone.repository;
 
 import com.codecool.twentyone.model.entities.Game;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.NativeQuery;
-import org.springframework.data.jpa.repository.Query;
+import jakarta.persistence.LockModeType;
+import org.springframework.data.jpa.repository.*;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
@@ -26,5 +25,26 @@ public interface GameRepository extends JpaRepository<Game, Long> {
 
     @NativeQuery (value = "SELECT CASE WHEN player1 = ?1 THEN 'player1' WHEN player2 = ?1 THEN 'player2' WHEN player3 = ?1 THEN 'player3' WHEN player4 = ?1 THEN 'player4' END AS found_column FROM game WHERE ?1 IN (player1, player2, player3, player4)")
     String findColumnByPlayerName(String playerName);
+
+    @Modifying
+    @NativeQuery(value = "UPDATE game SET card_order = card_order + 1 WHERE game_id = ?1")
+    void increaseCardOrder(@Param("game_id") Long gameId);
+
+    @Modifying
+    @NativeQuery(value = "UPDATE game SET card_order = 1 WHERE game_id = ?1")
+    void resetCardOrder(@Param("game_id") Long gameId);
+
+    /*
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @NativeQuery(value = "SELECT card_order FROM game WHERE game_id = ?1")
+    int getCardOrderByGameId(@Param("game_id") Long gameId);
+
+
+     */
+    @Modifying
+    @NativeQuery(value = "UPDATE game SET card_order = card_order + 1 WHERE game_id = ?1 RETURNING card_order - 1")
+    int getCardOrderAndIncrease(@Param("game_id") Long gameId);
+
+
 
 }

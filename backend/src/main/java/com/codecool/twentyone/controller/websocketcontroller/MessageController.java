@@ -6,15 +6,21 @@ import com.codecool.twentyone.repository.*;
 import com.codecool.twentyone.service.GameService;
 import com.codecool.twentyone.service.MessageService;
 import com.codecool.twentyone.service.ShuffleService;
+import org.springframework.context.event.EventListener;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.socket.messaging.SessionDisconnectEvent;
+
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Controller
 public class MessageController {
@@ -28,8 +34,9 @@ public class MessageController {
     private final DealerHandRepository dealerHandRepository;
     private final PlayerRepository playerRepository;
     private final PlayerHandRepository playerHandRepository;
+    private final ShuffleRepository shuffleRepository;
 
-    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GameService gameService, ShuffleService shuffleService, GameRepository gameRepository, DealerRepository dealerRepository, DealerHandRepository dealerHandRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository) {
+    public MessageController(SimpMessagingTemplate messagingTemplate, MessageService messageService, GameService gameService, ShuffleService shuffleService, GameRepository gameRepository, DealerRepository dealerRepository, DealerHandRepository dealerHandRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository, ShuffleRepository shuffleRepository) {
         this.messageService = messageService;
         this.messagingTemplate = messagingTemplate;
         this.gameService = gameService;
@@ -40,6 +47,7 @@ public class MessageController {
 
         this.playerRepository = playerRepository;
         this.playerHandRepository = playerHandRepository;
+        this.shuffleRepository = shuffleRepository;
     }
 
     @MessageMapping("/game.join")
@@ -53,26 +61,20 @@ public class MessageController {
             return;
         }
 
-        headerAccessor.getSessionAttributes().put("gameId", game.getGameId());
+        Objects.requireNonNull(headerAccessor.getSessionAttributes()).put("gameId", game.getGameId());
         headerAccessor.getSessionAttributes().put("player", message.playerName());
 
-        GameMessage privateMsg = messageService.gameToMessage(game);
-        privateMsg.setType("game.joined");
-        PublicHandsDTO publicHands;
-        if (privateMsg.isPublicHand1Exists() || privateMsg.isPublicHand2Exists() || privateMsg.isPublicHand3Exists() || privateMsg.isPublicHand4Exists()) {
-            publicHands = gameService.getPublicHandsByNewPlayer(game.getGameId());
-            messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), publicHands); //nem jön meg
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", publicHands);
+        GameMessage joinMessage = messageService.gameToMessage(game);
+        joinMessage.setType("game.joined");
+        if (game.getTurnName().equals("Dealer")) {
+            DealerHandDTO dealerHandDTO = gameService.getDealerHand(game.getGameId());
+            joinMessage.setDealerPublicHand(dealerHandDTO);
         }
+        messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", joinMessage);
 
-        messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", privateMsg);
+        joinMessage.setType("player.joined");
 
-        /*
-        GameMessage broadcastMsg = messageService.gameToMessage(game);
-        broadcastMsg.setType("player.joined");
-        messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), broadcastMsg);
-
-         */
+        messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), joinMessage);
     }
 
     @MessageMapping("/game.leave")
@@ -80,37 +82,56 @@ public class MessageController {
         GameMessage message = gameService.leaveGame(request.gameId(), request.playerName());
         message.setType("player.leaved");
 
-        GameMessage dealerMessage = null;
-        DealerHandDTO dealerHand = null;
-        PublicHandsDTO publicHands = null;
-        if (message.getTurnName().equals("Dealer")) {
-            dealerMessage = gameService.handleDealerTurn(request.gameId());
-            dealerMessage.setType("game.dealerTurn");
-            dealerHand = gameService.getDealerHand(request.gameId());
-            publicHands = gameService.getPublicHands(request.gameId());
-        }
-
-        message.setType("game.passTurn");
-        LeavingPlayerHandDTO playerHandDTO = new LeavingPlayerHandDTO(request.playerName(), List.of(), 0, "publicHand.update");
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message); // type: game.passTurn
-        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), playerHandDTO);
-
-        if (dealerHand != null) {
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage); // type: game.dealerTurn
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand); // type: dealerHand.update
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands); // type: publicHands.update
-        }
     }
+/*
+    @EventListener
+    public void SessionDisconnectEvent(SessionDisconnectEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+        String gameId = headerAccessor.getSessionAttributes().get("gameId").toString();
+        String player = headerAccessor.getSessionAttributes().get("player").toString();
+        GameMessage message = gameService.leaveGame(Long.valueOf(gameId), player);
+        message.setType("player.leaved");
+        messagingTemplate.convertAndSend("/topic/game." + gameId, message);
+    }
+
+ */
+
+    @EventListener
+    public void onSessionDisconnect(SessionDisconnectEvent event) {
+        StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
+
+        Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
+        if (sessionAttributes == null) {
+            return; // nincs mit csinálni
+        }
+
+        Object gameIdObj = sessionAttributes.get("gameId");
+        Object playerObj = sessionAttributes.get("player");
+
+        if (gameIdObj == null || playerObj == null) {
+            // A session nem egy játék-session volt → ignoráljuk.
+            return;
+        }
+
+        Long gameId = Long.valueOf(gameIdObj.toString());
+        String player = playerObj.toString();
+
+        GameMessage message = gameService.leaveGame(gameId, player);
+        message.setType("player.leaved");
+        messagingTemplate.convertAndSend("/topic/game." + gameId, message);
+    }
+
 
     @Transactional
     @MessageMapping("/game.firstRound")
     public void sendFirstRound(@Payload GameIdRequest request, Principal principal) {
         ResetHandDTO resetOwnHandDTO = new ResetHandDTO("Reset your hand", "reset.ownHand");
-        ResetHandDTO resetPublicHandDTO = new ResetHandDTO("Reset public hands", "reset.publicHands");
+        //ResetHandDTO resetPublicHandDTO = new ResetHandDTO("Reset public hands", "reset.publicHands");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
-        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), resetPublicHandDTO);
+        //messagingTemplate.convertAndSend("/topic/game." + request.gameId(), resetPublicHandDTO);
         //shuffleService.addShuffledDeck(request.gameId());
-        //
+
         shuffleService.useFakeDeck(request.gameId());
         Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
         game.setRemainingCards(32);
@@ -189,30 +210,12 @@ public class MessageController {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             GameMessage message = gameService.pullCard(request.gameId(), playerName);
-            GameMessage dealerMessage = null;
             message.setType("game.pullCard");
             PlayerHandDTO hand = gameService.getHand(playerName);
-            DealerHandDTO dealerHand = null;
-            PublicHandsDTO publicHands = null;
-            if (hand.playerState().equals(PlayerState.MUCH) || hand.playerState().equals(PlayerState.FIRE) || hand.playerState().equals(PlayerState.ENOUGH)) {
-                String newTurnName = gameService.getNextTurnName(request.gameId(), playerName);
-                if (newTurnName.equals("Dealer")) {
-                    dealerMessage = gameService.handleDealerTurn(request.gameId());
-                    dealerMessage.setType("game.dealerTurn");
-                    dealerHand = gameService.getDealerHand(request.gameId());
-                    publicHands = gameService.getPublicHands(request.gameId());
 
-                }
-                message.setTurnName(newTurnName);
-                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), hand);
-            }
             messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
-            if (dealerHand != null) {
-                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage);
-                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand);
-                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands);
-            }
+
         } else {
             throw new RuntimeException("Invalid turn"); //NotAllowedOperationException
         }
@@ -235,23 +238,11 @@ public class MessageController {
 
     @MessageMapping("/game.passTurn")
     public void passTurn (@Payload PassTurnRequestDTO request) {
-        GameMessage message = gameService.passTurn(request.gameId(), request.turnName());
-        GameMessage dealerMessage = null;
-        DealerHandDTO dealerHand = null;
-        PublicHandsDTO publicHands = null;
-        if (message.getTurnName().equals("Dealer")) {
-            dealerMessage = gameService.handleDealerTurn(request.gameId());
-            dealerMessage.setType("game.dealerTurn");
-            dealerHand = gameService.getDealerHand(request.gameId());
-            publicHands = gameService.getPublicHands(request.gameId());
-        }
+        GameMessage message = gameService.passTurnWhenStand(request.gameId(), request.turnName());
+        PlayerStateDTO dto = new PlayerStateDTO(PlayerState.ENOUGH.toString(), "playerState.update");
         message.setType("game.passTurn");
         messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message); // type: game.passTurn
-        if (dealerHand != null) {
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerMessage); // type: game.dealerTurn
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), dealerHand); // type: dealerHand.update
-            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), publicHands); // type: publicHands.update
-        }
+        messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
     }
 
     @MessageMapping("/game.raiseBet")
@@ -259,8 +250,9 @@ public class MessageController {
         GameMessage message = gameService.raiseBet(request.gameId(), request.turnName(), Integer.parseInt(request.bet()));
         message.setType("game.raiseBet");
         PlayerStateDTO dto = gameService.getPlayerState(request.turnName());
-        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
         messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+        //messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
     }
 
     @MessageMapping("/game.throwCards")
