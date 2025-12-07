@@ -97,6 +97,7 @@ public class MessageService {
             player1PublicHand = getPublicHandDTO(playerHand);
         }
         message.setPlayer1PublicHand(player1PublicHand);
+
         if (game.isPublicHand2Exists()) {
             Player player = playerRepository.findByPlayerName(game.getPlayer2()).orElseThrow(() -> new RuntimeException("Player 2 not found"));
             List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 2 hand not found"));
@@ -110,6 +111,7 @@ public class MessageService {
             player3PublicHand = getPublicHandDTO(playerHand);
         }
         message.setPlayer3PublicHand(player3PublicHand);
+
         if (game.isPublicHand4Exists()) {
             Player player = playerRepository.findByPlayerName(game.getPlayer4()).orElseThrow(() -> new RuntimeException("Player 4 not found"));
             List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 4 hand not found"));
