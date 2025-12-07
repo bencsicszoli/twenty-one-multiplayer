@@ -15,6 +15,7 @@ public class GameMessage {
     private String player2;
     private String player3;
     private String player4;
+    private String leavingPlayer;
     private int player1Balance;
     private int player1CardNumber;
     private int player1Pot;
