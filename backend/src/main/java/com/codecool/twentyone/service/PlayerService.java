@@ -3,7 +3,7 @@ package com.codecool.twentyone.service;
 import com.codecool.twentyone.exception_handler.custom_exception.EmailAddressAlreadyExistsException;
 import com.codecool.twentyone.exception_handler.custom_exception.NotAllowedOperationException;
 import com.codecool.twentyone.exception_handler.custom_exception.PlayerNameAlreadyExistsException;
-import com.codecool.twentyone.model.dto.*;
+import com.codecool.twentyone.model.dto.restdto.*;
 import com.codecool.twentyone.model.entities.Player;
 import com.codecool.twentyone.model.entities.Role;
 import com.codecool.twentyone.repository.PlayerRepository;

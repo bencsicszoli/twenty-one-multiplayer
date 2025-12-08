@@ -1,6 +1,7 @@
 package com.codecool.twentyone.controller.websocketcontroller;
 
 import com.codecool.twentyone.model.dto.*;
+import com.codecool.twentyone.model.dto.websocketdto.*;
 import com.codecool.twentyone.model.entities.*;
 import com.codecool.twentyone.repository.*;
 import com.codecool.twentyone.service.GameService;
@@ -108,8 +109,10 @@ public class MessageController {
         Long gameId = Long.valueOf(gameIdObj.toString());
         String player = playerObj.toString();
         GameMessage message = gameService.leaveGame(gameId, player);
-        message.setType("player.left");
-        messagingTemplate.convertAndSend("/topic/game." + gameId, message);
+        if (message != null) {
+            message.setType("player.left");
+            messagingTemplate.convertAndSend("/topic/game." + gameId, message);
+        }
     }
 
 
@@ -201,6 +204,20 @@ public class MessageController {
             PlayerHandDTO hand = gameService.getHand(playerName);
             messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
             messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
+            if (message.getTurnName().equals("Dealer")) {
+                Game currentGame = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
+                gameService.handleDealerTurn(currentGame);
+                DealerHandDTO dealerHandDTO = gameService.getDealerHand(currentGame.getGameId());
+                GameMessage newMessage = messageService.gameToMessage(currentGame);
+                newMessage.setDealerPublicHand(dealerHandDTO);
+                newMessage.setType("game.pullCard");
+                try {
+                    Thread.sleep(1000);
+                    messagingTemplate.convertAndSend("/topic/game." + request.gameId(), newMessage);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
 
         } else {
             throw new RuntimeException("Invalid turn"); //NotAllowedOperationException

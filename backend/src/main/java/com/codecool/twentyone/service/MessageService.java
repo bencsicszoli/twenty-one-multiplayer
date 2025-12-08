@@ -1,9 +1,8 @@
 package com.codecool.twentyone.service;
 
-import com.codecool.twentyone.model.dto.CardDTO;
-import com.codecool.twentyone.model.dto.DealerHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.CardDTO;
 import com.codecool.twentyone.model.dto.GameMessage;
-import com.codecool.twentyone.model.dto.PublicHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.PublicHandDTO;
 import com.codecool.twentyone.model.entities.*;
 import com.codecool.twentyone.repository.*;
 import org.springframework.stereotype.Service;
