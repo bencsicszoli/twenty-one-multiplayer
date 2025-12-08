@@ -24,22 +24,42 @@ function GamePage() {
   const [bet, setBet] = useState(0);
   const [betButtonClicked, setBetButtonClicked] = useState(false);
   const [dealerHand, setDealerHand] = useState([]);
-  const [dealerShownCards, setDealerShownCards] = useState(game?.dealerPublicHand?.cards || []);
-  const [dealerShownHandValue, setDealerShownHandValue] = useState(game?.dealerPublicHand?.handValue || 0);
+  const [dealerShownCards, setDealerShownCards] = useState(
+    game?.dealerPublicHand?.cards || []
+  );
+  const [dealerShownHandValue, setDealerShownHandValue] = useState(
+    game?.dealerPublicHand?.handValue || 0
+  );
   const [dealerHandValue, setDealerHandValue] = useState(0);
   const [dealerTurnFinished, setDealerTurnFinished] = useState(false);
   const [player1PublicHand, setPlayer1PublicHand] = useState([]);
   const [player2PublicHand, setPlayer2PublicHand] = useState([]);
   const [player3PublicHand, setPlayer3PublicHand] = useState([]);
   const [player4PublicHand, setPlayer4PublicHand] = useState([]);
-  const [player1PublicActiveHand, setPlayer1PublicActiveHand] = useState(game?.player1PublicHand?.cards || []);
-  const [player2PublicActiveHand, setPlayer2PublicActiveHand] = useState(game?.player2PublicHand?.cards || []);
-  const [player3PublicActiveHand, setPlayer3PublicActiveHand] = useState(game?.player3PublicHand?.cards || []);
-  const [player4PublicActiveHand, setPlayer4PublicActiveHand] = useState(game?.player4PublicHand?.cards || []);
-  const [player1PublicHandValue, setPlayer1PublicHandValue] = useState(game?.player1PublicHand?.handValue || 0);
-  const [player2PublicHandValue, setPlayer2PublicHandValue] = useState(game?.player2PublicHand?.handValue || 0);
-  const [player3PublicHandValue, setPlayer3PublicHandValue] = useState(game?.player3PublicHand?.handValue || 0);
-  const [player4PublicHandValue, setPlayer4PublicHandValue] = useState(game?.player4PublicHand?.handValue || 0);
+  const [player1PublicActiveHand, setPlayer1PublicActiveHand] = useState(
+    game?.player1PublicHand?.cards || []
+  );
+  const [player2PublicActiveHand, setPlayer2PublicActiveHand] = useState(
+    game?.player2PublicHand?.cards || []
+  );
+  const [player3PublicActiveHand, setPlayer3PublicActiveHand] = useState(
+    game?.player3PublicHand?.cards || []
+  );
+  const [player4PublicActiveHand, setPlayer4PublicActiveHand] = useState(
+    game?.player4PublicHand?.cards || []
+  );
+  const [player1PublicHandValue, setPlayer1PublicHandValue] = useState(
+    game?.player1PublicHand?.handValue || 0
+  );
+  const [player2PublicHandValue, setPlayer2PublicHandValue] = useState(
+    game?.player2PublicHand?.handValue || 0
+  );
+  const [player3PublicHandValue, setPlayer3PublicHandValue] = useState(
+    game?.player3PublicHand?.handValue || 0
+  );
+  const [player4PublicHandValue, setPlayer4PublicHandValue] = useState(
+    game?.player4PublicHand?.handValue || 0
+  );
   const [normalInfo, setNormalInfo] = useState(game?.content || "");
   const [finalInfo, setFinalInfo] = useState("");
 
@@ -66,14 +86,14 @@ function GamePage() {
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
         break;
-        /*
+      /*
       case "game.joined": //privát csatlakozás, ugyanaz, mint a publikus pullCard-é
         console.log("Joined game:", message);
         setGameState(message);
         setDealerShownCards(message.dealerPublicHand.cards);
         setDealerShownHandValue(message.dealerPublicHand.handValue); //setOwnState???
         */
-        /*
+      /*
         if (message.dealerPublicHand !== null) {
           if (!mounted.current) {
             mounted.current = true;
@@ -120,7 +140,6 @@ function GamePage() {
     console.log("Game update:", message);
 
     switch (message.type) {
-      
       case "player.joined": //publikus csatlakozás, ugyanaz, mint a pullCard-é
         console.log("Another player joined:", message);
         setGameState(message);
@@ -249,11 +268,8 @@ function GamePage() {
     console.log("Message in showDealerHand:", message);
     setDealerShownCards([]);
     setDealerShownHandValue(0);
-
     for (let i = 0; i < message.dealerPublicHand.cards.length; i++) {
-      // Itt vársz 5750 ms-et mielőtt a lap megjelenik
       await sleep(1500);
-
       const card = message.dealerPublicHand.cards[i];
       setDealerShownCards((prev) => [...prev, card]);
       setDealerShownHandValue((prev) => prev + card.cardValue);
@@ -266,7 +282,6 @@ function GamePage() {
     ) {
       setPlayer1PublicActiveHand(message.player1PublicHand.cards);
       setPlayer1PublicHandValue(message.player1PublicHand.handValue);
-
     }
     if (
       player2PublicHand.length === 0 &&
@@ -485,8 +500,13 @@ function GamePage() {
           <div className="w-full h-1/5 flex justify-around items-center relative -top-3">
             <MenuButton onClick={leaveGame} buttonText="Logout" />
             <MenuButton onClick={backToMenu} buttonText="Menu" />
-            {gameState.state === "NEW" && (
+            {gameState.turnName === "Dealer" && dealerTurnFinished ? (
               <MenuButton onClick={getFirstCard} buttonText="Deal!" />
+            ) : (
+              gameState.turnName !== "Dealer" &&
+              gameState.state === "NEW" && (
+                <MenuButton onClick={getFirstCard} buttonText="Deal!" />
+              )
             )}
           </div>
 

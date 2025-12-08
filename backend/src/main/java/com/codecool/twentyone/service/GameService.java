@@ -1,11 +1,14 @@
 package com.codecool.twentyone.service;
 
 import com.codecool.twentyone.model.dto.*;
+import com.codecool.twentyone.model.dto.websocketdto.CardDTO;
+import com.codecool.twentyone.model.dto.websocketdto.DealerHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.PlayerHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.PlayerStateDTO;
 import com.codecool.twentyone.model.entities.*;
 import com.codecool.twentyone.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -91,9 +94,14 @@ public class GameService {
             currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'"));
             getNextTurnName(currentGame, currentPlayer.getPlayerName());
             playerRepository.save(currentPlayer);
+            /*
             if (currentGame.getTurnName().equals("Dealer")) {
                 handleDealerTurn(currentGame);
             }
+
+             */
+            gameRepository.save(currentGame);
+            return messageService.gameToMessage(currentGame);
         } else if (handValue == 22 && cardsNumber == 2) {
             currentPlayer.setPlayerState(PlayerState.FIRE);
             currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
@@ -125,9 +133,12 @@ public class GameService {
             currentGame.setDealerBalance(dealer.getBalance());
             currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " busted and lost " + currentPlayer.getPot() / 2 + " $!");
             getNextTurnName(currentGame, currentPlayer.getPlayerName());
+            /*
             if (currentGame.getTurnName().equals("Dealer")) {
                 handleDealerTurn(currentGame);
             }
+
+             */
             currentPlayer.setPot(0);
             currentPlayer.setGames(currentPlayer.getGames() + 1);
             currentPlayer.setLosses(currentPlayer.getLosses() + 1);
@@ -140,6 +151,9 @@ public class GameService {
             } else if (currentGame.getPlayer4().equals(playerName)) {
                 currentGame.setPublicHand4Exists(true);
             }
+            playerRepository.save(currentPlayer);
+            gameRepository.save(currentGame);
+            return messageService.gameToMessage(currentGame);
         }
         gameRepository.save(currentGame);
         playerRepository.save(currentPlayer);
@@ -536,7 +550,6 @@ public class GameService {
 
         //Eljárás egy játékos esetén
         if (playersNumber == 1) {
-            System.out.println("Tényleg egynek veszi?");
             shuffleRepository.deleteByGameId(gameId);
             dealerHandRepository.deleteAllByDealerId(currentGame.getDealerId());
             dealerRepository.deleteById(currentGame.getDealerId());

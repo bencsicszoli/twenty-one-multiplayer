@@ -1,5 +1,7 @@
 package com.codecool.twentyone.model.dto;
 
+import com.codecool.twentyone.model.dto.websocketdto.DealerHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.PublicHandDTO;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;

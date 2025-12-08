@@ -1,4 +1,4 @@
-package com.codecool.twentyone.model.dto;
+package com.codecool.twentyone.model.dto.websocketdto;
 
 import java.util.List;
 
