@@ -21,7 +21,6 @@ function MessagesPlace({ gameState, onDisplayInformation, normalInfo, finalInfo 
         >
           {onDisplayInformation(normalInfo)}
         </p>)}
-        
       </div>
     </div>
   );

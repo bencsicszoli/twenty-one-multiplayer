@@ -60,10 +60,8 @@ public class MessageController {
             messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", errorMessage);
             return;
         }
-
         Objects.requireNonNull(headerAccessor.getSessionAttributes()).put("gameId", game.getGameId());
         headerAccessor.getSessionAttributes().put("player", message.playerName());
-
         GameMessage joinMessage = messageService.gameToMessage(game);
         joinMessage.setType("game.joined");
         if (game.getTurnName().equals("Dealer")) {
@@ -71,9 +69,7 @@ public class MessageController {
             joinMessage.setDealerPublicHand(dealerHandDTO);
         }
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", joinMessage);
-
         joinMessage.setType("player.joined");
-
         messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), joinMessage);
     }
 
@@ -94,18 +90,15 @@ public class MessageController {
     @EventListener
     public void onSessionDisconnect(SessionDisconnectEvent event) {
         StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
-
         Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
         if (sessionAttributes == null) {
             return;
         }
         Object gameIdObj = sessionAttributes.get("gameId");
         Object playerObj = sessionAttributes.get("player");
-
         if (gameIdObj == null || playerObj == null) {
             return;
         }
-
         Long gameId = Long.valueOf(gameIdObj.toString());
         String player = playerObj.toString();
         GameMessage message = gameService.leaveGame(gameId, player);
@@ -115,14 +108,13 @@ public class MessageController {
         }
     }
 
-
     @Transactional
     @MessageMapping("/game.firstRound")
     public void sendFirstRound(@Payload GameIdRequest request, Principal principal) {
         ResetHandDTO resetOwnHandDTO = new ResetHandDTO("Reset your hand", "reset.ownHand");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
-        shuffleService.addShuffledDeck(request.gameId());
-        //shuffleService.useFakeDeck(request.gameId());
+        //shuffleService.addShuffledDeck(request.gameId());
+        shuffleService.useFakeDeck(request.gameId());
         Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
         game.setRemainingCards(32);
         game.setState(GameState.NEW);

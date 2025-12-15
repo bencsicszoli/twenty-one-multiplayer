@@ -16,18 +16,22 @@ function HandPlace({
   location,
   playerPublicActiveHand,
   playerPublicActiveHandValue,
+  playerBalanceValue,
+  playerFinalBalance,
 }) {
   return (
     <div className="w-2/3 h-full flex flex-col">
-
       <div className="w-full h-1/3 flex flex-col place-items-center justify-end">
-      {gameState[playerSeat] === gameState.turnName ? (<div className="w-1/2 flex justify-center bg-[#7fce9e] text-[#2f4b3a] text-lg font-semibold rounded-md">
-          <p>{gameState[playerSeat]}</p>
-        </div>) : (<div className="w-1/2 flex justify-center">
-          <p>{gameState[playerSeat]}</p>
-        </div>)}
-        
-        
+        {gameState[playerSeat] === gameState.turnName ? (
+          <div className="w-1/2 flex justify-center bg-[#7fce9e] text-[#2f4b3a] text-lg font-semibold rounded-md">
+            <p>{gameState[playerSeat]}</p>
+          </div>
+        ) : (
+          <div className="w-1/2 flex justify-center">
+            <p>{gameState[playerSeat]}</p>
+          </div>
+        )}
+
         {betButtonClicked &&
           player &&
           gameState[playerSeat] === player.playerName && (
@@ -51,13 +55,21 @@ function HandPlace({
           {gameState[playerSeat] && (
             <>
               <p>Balance: &nbsp;</p>
-
-              <p
-                key={gameState[playerBalance]}
-                className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-              >
-                {gameState[playerBalance]}
-              </p>
+              {playerFinalBalance ? (
+                <p
+                  key={playerFinalBalance}
+                  className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
+                >
+                  {playerFinalBalance}
+                </p>
+              ) : (
+                <p
+                  key={playerBalanceValue}
+                  className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
+                >
+                  {playerBalanceValue}
+                </p>
+              )}
             </>
           )}
         </div>

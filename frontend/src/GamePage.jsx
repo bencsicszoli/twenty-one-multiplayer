@@ -62,6 +62,34 @@ function GamePage() {
   );
   const [normalInfo, setNormalInfo] = useState(game?.content || "");
   const [finalInfo, setFinalInfo] = useState("");
+  const [player1Balance, setPlayer1Balance] = useState(
+    game?.player1Balance || 0
+  );
+  const [player2Balance, setPlayer2Balance] = useState(
+    game?.player2Balance || 0
+  );
+  const [player3Balance, setPlayer3Balance] = useState(
+    game?.player3Balance || 0
+  );
+  const [player4Balance, setPlayer4Balance] = useState(
+    game?.player4Balance || 0
+  );
+  const [dealerBalance, setDealerBalance] = useState(game?.dealerbalance || 100);
+  const [player1FinalBalance, setPlayer1FinalBalance] = useState(null);
+  const [player2FinalBalance, setPlayer2FinalBalance] = useState(null);
+  const [player3FinalBalance, setPlayer3FinalBalance] = useState(null);
+  const [player4FinalBalance, setPlayer4FinalBalance] = useState(null);
+  const [dealerFinalBalance, setDealerFinalBalance] = useState(null);
+  const [player1Pot, setPlayer1Pot] = useState(0);
+  const [player2Pot, setPlayer2Pot] = useState(0);
+  const [player3Pot, setPlayer3Pot] = useState(0);
+  const [player4Pot, setPlayer4Pot] = useState(0);
+  const [player1FinalPot, setPlayer1FinalPot] = useState(null);
+  const [player2FinalPot, setPlayer2FinalPot] = useState(null);
+  const [player3FinalPot, setPlayer3FinalPot] = useState(null);
+  const [player4FinalPot, setPlayer4FinalPot] = useState(null);
+  const [remainingCards, setRemainingCards] = useState(game?.remainingCards || 32);
+  const [finalRemainingCards, setFinalRemainingCards] = useState(null);
 
   const navigate = useNavigate();
   const mounted = useRef(false);
@@ -86,24 +114,6 @@ function GamePage() {
         setOwnHandValue(message.handValue);
         setOwnState(message.playerState);
         break;
-      /*
-      case "game.joined": //privát csatlakozás, ugyanaz, mint a publikus pullCard-é
-        console.log("Joined game:", message);
-        setGameState(message);
-        setDealerShownCards(message.dealerPublicHand.cards);
-        setDealerShownHandValue(message.dealerPublicHand.handValue); //setOwnState???
-        */
-      /*
-        if (message.dealerPublicHand !== null) {
-          if (!mounted.current) {
-            mounted.current = true;
-            showDealerHand(message.dealerPublicHand.cards);
-            console.log("showDealerHand called");
-          }
-        }
-          
-        break;
-        */
       case "hand.update": //privát kéz frissítés
         setOwnHand(message.cards);
         setOwnHandValue(message.handValue);
@@ -151,23 +161,67 @@ function GamePage() {
           }
         } else {
           setNormalInfo(message.content);
+          setDealerBalance(message.dealerBalance);
+          setRemainingCards(message.remainingCards);
+          if (player1Balance !== message.player1Balance) {
+            setPlayer1Balance(message.player1Balance);
+          }
+          if (player2Balance !== message.player2Balance) {
+            setPlayer2Balance(message.player2Balance);
+          }
+          if (player3Balance !== message.player3Balance) {
+            setPlayer3Balance(message.player3Balance);
+          }
+          if (player4Balance !== message.player4Balance) {
+            setPlayer4Balance(message.player4Balance);
+          }
+          if (player1Pot !== message.player1Pot) {
+            setPlayer1Pot(message.player1Pot);
+          }
+          if (player2Pot !== message.player2Pot) {
+            setPlayer2Pot(message.player2Pot);
+          }
+          if (player3Pot !== message.player3Pot) {
+            setPlayer3Pot(message.player3Pot);
+          }
+          if (player4Pot !== message.player4Pot) {
+            setPlayer4Pot(message.player4Pot);
+          }
         }
         break;
       case "player.left": //publikus, ugyanaz, mint a pullCard-é
         console.log("Player left");
         setGameState(message);
+        setDealerBalance(message.dealerBalance);
+        setRemainingCards(message.remainingCards);
         if (message.leavingPlayer === "player1") {
           setPlayer1PublicHand([]);
           setPlayer1PublicActiveHand([]);
+          setPlayer1Balance(0);
+          setPlayer1FinalBalance(null);
+          setPlayer1Pot(0);
+          setPlayer1FinalPot(null);
         } else if (message.leavingPlayer === "player2") {
           setPlayer2PublicHand([]);
           setPlayer2PublicActiveHand([]);
+          setPlayer2Balance(0);
+          setPlayer2FinalBalance(null);
+          setPlayer2Pot(0);
+          setPlayer2FinalPot(null);
         } else if (message.leavingPlayer === "player3") {
           setPlayer3PublicHand([]);
           setPlayer3PublicActiveHand([]);
+          setPlayer3Balance(0);
+          setPlayer3FinalBalance(null);
+          setPlayer3Pot(0);
+          setPlayer3FinalPot(null);
         } else if (message.leavingPlayer === "player4") {
           setPlayer4PublicHand([]);
           setPlayer4PublicActiveHand([]);
+          setPlayer4Balance(0);
+          setPlayer4FinalBalance(null);
+          setPlayer4Pot(0);
+          setPlayer4FinalPot(null);
         }
 
         if (message.dealerPublicHand !== null) {
@@ -200,6 +254,26 @@ function GamePage() {
         setPlayer4PublicHandValue(0);
         setNormalInfo(message.content);
         setFinalInfo("");
+        setPlayer1Balance(message.player1Balance);
+        setPlayer2Balance(message.player2Balance);
+        setPlayer3Balance(message.player3Balance);
+        setPlayer4Balance(message.player4Balance);
+        setDealerBalance(message.dealerBalance);
+        setPlayer1FinalBalance(null);
+        setPlayer2FinalBalance(null);
+        setPlayer3FinalBalance(null);
+        setPlayer4FinalBalance(null);
+        setDealerFinalBalance(null);
+        setPlayer1Pot(0);
+        setPlayer2Pot(0);
+        setPlayer3Pot(0);
+        setPlayer4Pot(0);
+        setPlayer1FinalPot(null)
+        setPlayer2FinalPot(null)
+        setPlayer3FinalPot(null)
+        setPlayer4FinalPot(null)
+        setRemainingCards(message.remainingCards)
+        setFinalRemainingCards(null)
         mounted.current = false;
         break;
       case "game.throwAce": //publikus, értesít az ász eldobásáról
@@ -225,7 +299,25 @@ function GamePage() {
           setPlayer2PublicHandValue(message.player2PublicHand.handValue);
           setPlayer3PublicHandValue(message.player3PublicHand.handValue);
           setPlayer4PublicHandValue(message.player4PublicHand.handValue);
+          if (player1Balance !== message.player1Balance) {
+            setPlayer1Balance(message.player1Balance);
+          }
+          if (player2Balance !== message.player2Balance) {
+            setPlayer2Balance(message.player2Balance);
+          }
+          if (player3Balance !== message.player3Balance) {
+            setPlayer3Balance(message.player3Balance);
+          }
+          if (player4Balance !== message.player4Balance) {
+            setPlayer4Balance(message.player4Balance);
+          }
+          setPlayer1Pot(message.player1Pot);
+          setPlayer2Pot(message.player2Pot);
+          setPlayer3Pot(message.player3Pot);
+          setPlayer4Pot(message.player4Pot);
           setNormalInfo(message.content);
+          setDealerBalance(message.dealerBalance);
+          setRemainingCards(message.remainingCards);
         }
         break;
 
@@ -245,11 +337,40 @@ function GamePage() {
           }
         } else {
           setNormalInfo(message.content);
+          if (player1Balance !== message.player1Balance) {
+            setPlayer1Balance(message.player1Balance);
+          }
+          if (player2Balance !== message.player2Balance) {
+            setPlayer2Balance(message.player2Balance);
+          }
+          if (player3Balance !== message.player3Balance) {
+            setPlayer3Balance(message.player3Balance);
+          }
+          if (player4Balance !== message.player4Balance) {
+            setPlayer4Balance(message.player4Balance);
+          }
         }
         break;
       case "game.raiseBet": //publikus, tétrakás után
         console.log("Raise bet: ", message);
         setGameState(message);
+        setDealerBalance(message.dealerBalance);
+        setPlayer1Balance(message.player1Balance);
+        setPlayer2Balance(message.player2Balance);
+        setPlayer3Balance(message.player3Balance);
+        setPlayer4Balance(message.player4Balance);
+        if (player1Pot !== message.player1Pot) {
+          setPlayer1Pot(message.player1Pot);
+        }
+        if (player2Pot !== message.player2Pot) {
+          setPlayer2Pot(message.player2Pot);
+        }
+        if (player3Pot !== message.player3Pot) {
+          setPlayer3Pot(message.player3Pot);
+        }
+        if (player4Pot !== message.player4Pot) {
+          setPlayer4Pot(message.player4Pot);
+        }
         setNormalInfo(message.content);
         break;
       case "game.newContent": //Infotábla változás, ohne Ásznál használom
@@ -273,6 +394,9 @@ function GamePage() {
       const card = message.dealerPublicHand.cards[i];
       setDealerShownCards((prev) => [...prev, card]);
       setDealerShownHandValue((prev) => prev + card.cardValue);
+      if (i > 0) {
+        setFinalRemainingCards(message.remainingCards + message.dealerPublicHand.cards.length - i - 1)
+      }
     }
     setDealerTurnFinished(true);
     await sleep(500);
@@ -306,6 +430,39 @@ function GamePage() {
     }
     await sleep(500);
     setFinalInfo(message.content);
+    if (player1Balance !== message.player1Balance) {
+      setPlayer1FinalBalance(message.player1Balance);
+    }
+    if (player2Balance !== message.player2Balance) {
+      setPlayer2FinalBalance(message.player2Balance);
+    }
+    if (player3Balance !== message.player3Balance) {
+      setPlayer3FinalBalance(message.player3Balance);
+    }
+    if (player4Balance !== message.player4Balance) {
+      setPlayer4FinalBalance(message.player4Balance);
+    }
+    console.log("Player 1 pot: ", player1Pot)
+    console.log("Player 2 pot: ", player2Pot)
+    /*
+    if (player1Pot > 0) {
+      setPlayer1FinalPot(0);
+    }
+    if (player2Pot > 0) {
+      setPlayer2FinalPot(0);
+    }
+    if (player3Pot > 0) {
+      setPlayer3FinalPot(0);
+    }
+    if (player4Pot > 0) {
+      setPlayer4FinalPot(0);
+    }
+      */
+    setPlayer1FinalPot(0);
+    setPlayer2FinalPot(0);
+    setPlayer3FinalPot(0);
+    setPlayer4FinalPot(0);
+    setDealerFinalBalance(message.dealerBalance);
   }
 
   function showHand(hand) {
@@ -555,12 +712,15 @@ function GamePage() {
                   dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player2PublicActiveHand}
                   playerPublicActiveHandValue={player2PublicHandValue}
+                  playerBalanceValue={player2Balance}
+                  playerFinalBalance={player2FinalBalance}
                 />
 
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player2Pot}
+                  playerPot={player2Pot}
+                  playerFinalPot={player2FinalPot}
                   direction="flex-col"
                 />
               </div>
@@ -605,12 +765,15 @@ function GamePage() {
                   dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player3PublicActiveHand}
                   playerPublicActiveHandValue={player3PublicHandValue}
+                  playerBalanceValue={player3Balance}
+                  playerFinalBalance={player3FinalBalance}
                 />
 
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player3Pot}
+                  playerPot={player3Pot}
+                  playerFinalPot={player3FinalPot}
                   direction="flex-col"
                 />
               </div>
@@ -620,6 +783,8 @@ function GamePage() {
               <RemainingCardsPlace
                 gameState={gameState}
                 onShowRemainingCards={showRemainingCards}
+                remainingCards={remainingCards}
+                finalRemainingCards={finalRemainingCards}
               />
 
               {/* Osztó terepe */}
@@ -629,6 +794,8 @@ function GamePage() {
                 onShowCardBacks={showCardBacks}
                 dealerShownCards={dealerShownCards}
                 dealerShownHandValue={dealerShownHandValue}
+                dealerBalance={dealerBalance}
+                dealerFinalBalance={dealerFinalBalance}
               />
 
               {/* Értesítések helye */}
@@ -645,7 +812,8 @@ function GamePage() {
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player1Pot}
+                  playerPot={player1Pot}
+                  playerFinalPot={player1FinalPot}
                   direction="flex-col"
                 />
 
@@ -669,6 +837,8 @@ function GamePage() {
                   dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player1PublicActiveHand}
                   playerPublicActiveHandValue={player1PublicHandValue}
+                  playerBalanceValue={player1Balance}
+                  playerFinalBalance={player1FinalBalance}
                 />
                 {/* Kezelőgombok helye */}
                 <HandlerPanel
@@ -694,7 +864,8 @@ function GamePage() {
                 {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
-                  playerPot={gameState.player4Pot}
+                  playerPot={player4Pot}
+                  playerFinalPot={player4FinalPot}
                   direction="flex-col"
                 />
 
@@ -718,6 +889,8 @@ function GamePage() {
                   dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player4PublicActiveHand}
                   playerPublicActiveHandValue={player4PublicHandValue}
+                  playerBalanceValue={player4Balance}
+                  playerFinalBalance={player4FinalBalance}
                 />
                 {/* Kezelőgombok helye */}
                 <HandlerPanel

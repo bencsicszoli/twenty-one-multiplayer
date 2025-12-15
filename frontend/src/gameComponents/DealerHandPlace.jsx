@@ -4,6 +4,8 @@ function DealerHandPlace({
   dealerShownCards,
   onShowCardBacks,
   dealerShownHandValue,
+  dealerBalance,
+  dealerFinalBalance,
 }) {
   return (
     <div className="w-full h-1/2">
@@ -12,12 +14,18 @@ function DealerHandPlace({
           <p>Dealer</p>
           <div className="flex">
             <p>Balance: &nbsp;</p>
-            <p
-              key={gameState.dealerBalance}
+            {dealerFinalBalance ? (<p
+              key={dealerFinalBalance}
               className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
             >
-              {gameState.dealerBalance}
-            </p>
+              {dealerFinalBalance}
+            </p>) : (<p
+              key={dealerBalance}
+              className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
+            >
+              {dealerBalance}
+            </p>)}
+            
           </div>
         </div>
         {gameState.turnName === "Dealer" ? (

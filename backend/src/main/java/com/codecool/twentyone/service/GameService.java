@@ -94,12 +94,6 @@ public class GameService {
             currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'"));
             getNextTurnName(currentGame, currentPlayer.getPlayerName());
             playerRepository.save(currentPlayer);
-            /*
-            if (currentGame.getTurnName().equals("Dealer")) {
-                handleDealerTurn(currentGame);
-            }
-
-             */
             gameRepository.save(currentGame);
             return messageService.gameToMessage(currentGame);
         } else if (handValue == 22 && cardsNumber == 2) {
@@ -107,25 +101,31 @@ public class GameService {
             currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
             currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " with aces-only hand won " + currentPlayer.getPot() / 2 + " $!"));
             getNextTurnName(currentGame, currentPlayer.getPlayerName());
+            /*
             if (currentGame.getTurnName().equals("Dealer")) {
                 handleDealerTurn(currentGame);
             }
+            
+             */
             currentPlayer.setPot(0);
             currentPlayer.setGames(currentPlayer.getGames() + 1);
             currentPlayer.setWins(currentPlayer.getWins() + 1);
-            if (currentGame.getPlayer1().equals(playerName)) {
+            if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(playerName)) {
                 currentGame.setPlayer1Balance(currentPlayer.getBalance());
                 currentGame.setPublicHand1Exists(true);
-            } else if (currentGame.getPlayer2().equals(playerName)) {
+            } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(playerName)) {
                 currentGame.setPlayer2Balance(currentPlayer.getBalance());
                 currentGame.setPublicHand2Exists(true);
-            } else if (currentGame.getPlayer3().equals(playerName)) {
+            } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(playerName)) {
                 currentGame.setPlayer3Balance(currentPlayer.getBalance());
                 currentGame.setPublicHand3Exists(true);
-            } else if (currentGame.getPlayer4().equals(playerName)) {
+            } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(playerName)) {
                 currentGame.setPlayer4Balance(currentPlayer.getBalance());
                 currentGame.setPublicHand4Exists(true);
             }
+            playerRepository.save(currentPlayer);
+            gameRepository.save(currentGame);
+            return messageService.gameToMessage(currentGame);
 
         } else if (handValue >= 22 && !currentPlayer.getPlayerState().equals(PlayerState.OHNE_ACE)) {
             currentPlayer.setPlayerState(PlayerState.MUCH);
@@ -142,13 +142,13 @@ public class GameService {
             currentPlayer.setPot(0);
             currentPlayer.setGames(currentPlayer.getGames() + 1);
             currentPlayer.setLosses(currentPlayer.getLosses() + 1);
-            if (currentGame.getPlayer1().equals(playerName)) {
+            if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(playerName)) {
                 currentGame.setPublicHand1Exists(true);
-            } else if (currentGame.getPlayer2().equals(playerName)) {
+            } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(playerName)) {
                 currentGame.setPublicHand2Exists(true);
-            } else if (currentGame.getPlayer3().equals(playerName)) {
+            } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(playerName)) {
                 currentGame.setPublicHand3Exists(true);
-            } else if (currentGame.getPlayer4().equals(playerName)) {
+            } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(playerName)) {
                 currentGame.setPublicHand4Exists(true);
             }
             playerRepository.save(currentPlayer);
@@ -440,7 +440,9 @@ public class GameService {
             }
             player.setBalance(player.getBalance() - bet);
             player.setPot(player.getPot() + bet * 2);
-            player.setPlayerState(PlayerState.WAITING_CARD);
+            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
+                player.setPlayerState(PlayerState.WAITING_CARD);
+            }
             playerRepository.save(player);
             currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
             currentGame.setPlayer2Balance(currentGame.getPlayer2Balance() - bet);
@@ -458,7 +460,9 @@ public class GameService {
             }
             player.setBalance(player.getBalance() - bet);
             player.setPot(player.getPot() + bet * 2);
-            player.setPlayerState(PlayerState.WAITING_CARD);
+            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
+                player.setPlayerState(PlayerState.WAITING_CARD);
+            }
             playerRepository.save(player);
             currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
             currentGame.setPlayer3Balance(currentGame.getPlayer3Balance() - bet);
@@ -476,7 +480,9 @@ public class GameService {
             }
             player.setBalance(player.getBalance() - bet);
             player.setPot(player.getPot() + bet * 2);
-            player.setPlayerState(PlayerState.WAITING_CARD);
+            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
+                player.setPlayerState(PlayerState.WAITING_CARD);
+            }
             playerRepository.save(player);
             currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
             currentGame.setPlayer4Balance(currentGame.getPlayer4Balance() - bet);

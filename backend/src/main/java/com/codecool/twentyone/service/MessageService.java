@@ -18,14 +18,12 @@ public class MessageService {
     private final DealerRepository dealerRepository;
     private final PlayerRepository playerRepository;
     private final PlayerHandRepository playerHandRepository;
-    private final DealerHandRepository dealerHandRepository;
 
-    public MessageService(GameRepository gameRepository, DealerRepository dealerRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository, DealerHandRepository dealerHandRepository) {
+    public MessageService(GameRepository gameRepository, DealerRepository dealerRepository, PlayerRepository playerRepository, PlayerHandRepository playerHandRepository) {
         this.gameRepository = gameRepository;
         this.dealerRepository = dealerRepository;
         this.playerRepository = playerRepository;
         this.playerHandRepository = playerHandRepository;
-        this.dealerHandRepository = dealerHandRepository;
     }
 
     public synchronized Game joinGame(String player) {
