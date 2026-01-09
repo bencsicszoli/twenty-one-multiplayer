@@ -84,6 +84,7 @@ public class MessageService {
         message.setRemainingCards(game.getRemainingCards());
         message.setState(game.getState().toString());
         message.setContent(game.getInformation());
+        message.setLastCard(game.isLastCard());
         PublicHandDTO player1PublicHand = new PublicHandDTO(List.of(), 0);
         PublicHandDTO player2PublicHand = new PublicHandDTO(List.of(), 0);
         PublicHandDTO player3PublicHand = new PublicHandDTO(List.of(), 0);

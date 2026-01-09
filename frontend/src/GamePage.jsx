@@ -74,7 +74,9 @@ function GamePage() {
   const [player4Balance, setPlayer4Balance] = useState(
     game?.player4Balance || 0
   );
-  const [dealerBalance, setDealerBalance] = useState(game?.dealerbalance || 100);
+  const [dealerBalance, setDealerBalance] = useState(
+    game?.dealerbalance || 100
+  );
   const [player1FinalBalance, setPlayer1FinalBalance] = useState(null);
   const [player2FinalBalance, setPlayer2FinalBalance] = useState(null);
   const [player3FinalBalance, setPlayer3FinalBalance] = useState(null);
@@ -88,7 +90,9 @@ function GamePage() {
   const [player2FinalPot, setPlayer2FinalPot] = useState(null);
   const [player3FinalPot, setPlayer3FinalPot] = useState(null);
   const [player4FinalPot, setPlayer4FinalPot] = useState(null);
-  const [remainingCards, setRemainingCards] = useState(game?.remainingCards || 32);
+  const [remainingCards, setRemainingCards] = useState(
+    game?.remainingCards || 32
+  );
   const [finalRemainingCards, setFinalRemainingCards] = useState(null);
 
   const navigate = useNavigate();
@@ -268,12 +272,12 @@ function GamePage() {
         setPlayer2Pot(0);
         setPlayer3Pot(0);
         setPlayer4Pot(0);
-        setPlayer1FinalPot(null)
-        setPlayer2FinalPot(null)
-        setPlayer3FinalPot(null)
-        setPlayer4FinalPot(null)
-        setRemainingCards(message.remainingCards)
-        setFinalRemainingCards(null)
+        setPlayer1FinalPot(null);
+        setPlayer2FinalPot(null);
+        setPlayer3FinalPot(null);
+        setPlayer4FinalPot(null);
+        setRemainingCards(message.remainingCards);
+        setFinalRemainingCards(null);
         mounted.current = false;
         break;
       case "game.throwAce": //publikus, értesít az ász eldobásáról
@@ -285,11 +289,26 @@ function GamePage() {
         console.log("Next card:", message);
         setGameState(message);
         if (message.dealerPublicHand !== null) {
-          if (!mounted.current) {
-            mounted.current = true;
-            showDealerHand(message);
-            console.log("showDealerHand called");
+          //if (!mounted.current) {
+          //mounted.current = true;
+          showDealerHand(message);
+          if (message.player1Pot === 0) {
+            setPlayer1FinalPot(0);
           }
+          if (message.player2Pot === 0) {
+            setPlayer2FinalPot(0);
+          }
+          if (message.player3Pot === 0) {
+            setPlayer3FinalPot(0);
+          }
+          if (message.player4Pot === 0) {
+            setPlayer4FinalPot(0);
+          }
+          console.log("showDealerHand called");
+          if (message.content !== null) {
+            setFinalInfo(message.content);
+          }
+          //}
         } else {
           setPlayer1PublicHand(message.player1PublicHand.cards);
           setPlayer2PublicHand(message.player2PublicHand.cards);
@@ -330,11 +349,14 @@ function GamePage() {
         console.log("Next turn:", message);
         setGameState(message);
         if (message.dealerPublicHand !== null) {
-          if (!mounted.current) {
-            mounted.current = true;
-            showDealerHand(message);
-            console.log("showDealerHand called");
+          //if (!mounted.current) {
+          //mounted.current = true;
+          showDealerHand(message);
+          console.log("showDealerHand called");
+          if (message.content !== null) {
+            setFinalInfo(message.content);
           }
+          //}
         } else {
           setNormalInfo(message.content);
           if (player1Balance !== message.player1Balance) {
@@ -387,49 +409,45 @@ function GamePage() {
 
   async function showDealerHand(message) {
     console.log("Message in showDealerHand:", message);
-    setDealerShownCards([]);
-    setDealerShownHandValue(0);
-    for (let i = 0; i < message.dealerPublicHand.cards.length; i++) {
-      await sleep(1500);
-      const card = message.dealerPublicHand.cards[i];
-      setDealerShownCards((prev) => [...prev, card]);
-      setDealerShownHandValue((prev) => prev + card.cardValue);
-      if (i > 0) {
-        setFinalRemainingCards(message.remainingCards + message.dealerPublicHand.cards.length - i - 1)
-      }
-    }
-    setDealerTurnFinished(true);
+    setDealerShownCards(message.dealerPublicHand.cards);
+    setDealerShownHandValue(message.dealerPublicHand.handValue);
+    setDealerTurnFinished(message.lastCard);
+    setFinalRemainingCards(message.remainingCards);
     await sleep(500);
     if (
       player1PublicHand.length === 0 &&
-      message.player1PublicHand.cards.length > 0
+      message.player1PublicHand.cards.length > 0 &&
+      message.lastCard
     ) {
       setPlayer1PublicActiveHand(message.player1PublicHand.cards);
       setPlayer1PublicHandValue(message.player1PublicHand.handValue);
     }
     if (
       player2PublicHand.length === 0 &&
-      message.player2PublicHand.cards.length > 0
+      message.player2PublicHand.cards.length > 0 &&
+      message.lastCard
     ) {
       setPlayer2PublicActiveHand(message.player2PublicHand.cards);
       setPlayer2PublicHandValue(message.player2PublicHand.handValue);
     }
     if (
       player3PublicHand.length === 0 &&
-      message.player3PublicHand.cards.length > 0
+      message.player3PublicHand.cards.length > 0 &&
+      message.lastCard
     ) {
       setPlayer3PublicActiveHand(message.player3PublicHand.cards);
       setPlayer3PublicHandValue(message.player3PublicHand.handValue);
     }
     if (
       player4PublicHand.length === 0 &&
-      message.player4PublicHand.cards.length > 0
+      message.player4PublicHand.cards.length > 0 &&
+      message.lastCard
     ) {
       setPlayer4PublicActiveHand(message.player4PublicHand.cards);
       setPlayer4PublicHandValue(message.player4PublicHand.handValue);
     }
     await sleep(500);
-    setFinalInfo(message.content);
+    //setFinalInfo(message.content);
     if (player1Balance !== message.player1Balance) {
       setPlayer1FinalBalance(message.player1Balance);
     }
@@ -442,8 +460,6 @@ function GamePage() {
     if (player4Balance !== message.player4Balance) {
       setPlayer4FinalBalance(message.player4Balance);
     }
-    console.log("Player 1 pot: ", player1Pot)
-    console.log("Player 2 pot: ", player2Pot)
     /*
     if (player1Pot > 0) {
       setPlayer1FinalPot(0);
@@ -458,11 +474,13 @@ function GamePage() {
       setPlayer4FinalPot(0);
     }
       */
-    setPlayer1FinalPot(0);
-    setPlayer2FinalPot(0);
-    setPlayer3FinalPot(0);
-    setPlayer4FinalPot(0);
-    setDealerFinalBalance(message.dealerBalance);
+    if (message.lastCard) {
+      setPlayer1FinalPot(0);
+      setPlayer2FinalPot(0);
+      setPlayer3FinalPot(0);
+      setPlayer4FinalPot(0);
+      setDealerFinalBalance(message.dealerBalance);
+    }
   }
 
   function showHand(hand) {
@@ -709,7 +727,7 @@ function GamePage() {
                   playerBalance="player2Balance"
                   cardNumber="player2CardNumber"
                   location="top-9"
-                  dealerTurnFinished={dealerTurnFinished}
+                  //dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player2PublicActiveHand}
                   playerPublicActiveHandValue={player2PublicHandValue}
                   playerBalanceValue={player2Balance}
@@ -762,7 +780,7 @@ function GamePage() {
                   playerBalance="player3Balance"
                   cardNumber="player3CardNumber"
                   location="top-76"
-                  dealerTurnFinished={dealerTurnFinished}
+                  //dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player3PublicActiveHand}
                   playerPublicActiveHandValue={player3PublicHandValue}
                   playerBalanceValue={player3Balance}
@@ -834,7 +852,7 @@ function GamePage() {
                   playerBalance="player1Balance"
                   cardNumber="player1CardNumber"
                   location="top-9"
-                  dealerTurnFinished={dealerTurnFinished}
+                  //dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player1PublicActiveHand}
                   playerPublicActiveHandValue={player1PublicHandValue}
                   playerBalanceValue={player1Balance}
@@ -886,7 +904,7 @@ function GamePage() {
                   playerBalance="player4Balance"
                   cardNumber="player4CardNumber"
                   location="top-76"
-                  dealerTurnFinished={dealerTurnFinished}
+                  //dealerTurnFinished={dealerTurnFinished}
                   playerPublicActiveHand={player4PublicActiveHand}
                   playerPublicActiveHandValue={player4PublicHandValue}
                   playerBalanceValue={player4Balance}

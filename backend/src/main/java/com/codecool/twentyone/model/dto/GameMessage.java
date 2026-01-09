@@ -42,4 +42,5 @@ public class GameMessage {
     private String turnName;
     private String content;
     private String state;
+    private boolean isLastCard = false;
 }
