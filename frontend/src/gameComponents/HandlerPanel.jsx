@@ -1,3 +1,5 @@
+import HandlerButton from "../pageComponents/HandlerButton";
+
 function HandlerPanel({
   onMoreCard,
   onBetButton,
@@ -13,7 +15,6 @@ function HandlerPanel({
   onSetOhneAce,
   ohneAceAnnounced,
   betButtonClicked,
-
 }) {
   return (
     <>
@@ -22,45 +23,29 @@ function HandlerPanel({
         gameState === "IN_PROGRESS" && (
           <>
             <div className="w-1/6 h-full flex flex-col justify-center gap-1.5">
-              {!(ownState === "OHNE_ACE" && ownHandValue === 22 || betButtonClicked) && (
-                <button
-                  onClick={onMoreCard}
-                  className="w-full h-1/4 bg-[#7fce9e] text-[#2f4b3a] font-bold rounded-xl hover:scale-105 cursor-pointer"
-                >
-                  Hit
-                </button>
-              )}
+              {!(
+                (ownState === "OHNE_ACE" && ownHandValue === 22) ||
+                betButtonClicked
+              ) && <HandlerButton onAction={onMoreCard} buttonText="Hit" />}
 
-              <button
-                onClick={onBetButton}
-                className="w-full h-1/4 bg-[#7fce9e] text-[#2f4b3a] font-bold rounded-xl hover:scale-105 cursor-pointer"
-              >
-                Bet
-              </button>
-              {ownState === "COULD_STOP" && turnName === playerName && !betButtonClicked && (
-                <button
-                  onClick={onChangeTurn}
-                  className="w-full h-1/4 bg-[#7fce9e] text-[#2f4b3a] font-bold rounded-xl hover:scale-105 cursor-pointer"
-                >
-                  Stand
-                </button>
-              )}
-              {cardNumber > 1 && ownHandValue === 11 && !ohneAceAnnounced && !betButtonClicked && (
-                <button
-                  onClick={onSetOhneAce}
-                  className="w-full h-1/4 bg-[#7fce9e] text-[#2f4b3a] font-bold rounded-xl hover:scale-105 cursor-pointer"
-                >
-                  Ohne ace
-                </button>
-              )}
+              <HandlerButton onAction={onBetButton} buttonText="Bet" />
+              {ownState === "COULD_STOP" &&
+                turnName === playerName &&
+                !betButtonClicked && (
+                  <HandlerButton onAction={onChangeTurn} buttonText="Stand" />
+                )}
+              {cardNumber > 1 &&
+                ownHandValue === 11 &&
+                !ohneAceAnnounced &&
+                !betButtonClicked && (
+                  <HandlerButton
+                    onAction={onSetOhneAce}
+                    buttonText="Ohne Ace"
+                  />
+                )}
 
               {cardNumber === 5 && !betButtonClicked && (
-                <button
-                  onClick={onThrowCards}
-                  className="w-full h-1/4 bg-[#7fce9e] text-[#2f4b3a] font-bold rounded-xl hover:scale-105 cursor-pointer"
-                >
-                  Discard
-                </button>
+                <HandlerButton onAction={onThrowCards} buttonText="Discard" />
               )}
             </div>
           </>

@@ -19,114 +19,126 @@ function HandPlace({
   playerBalanceValue,
   playerFinalBalance,
 }) {
+
+  function displayPlayerName() {
+    if (gameState[playerSeat] === gameState.turnName) {
+      return (
+        <div className="w-1/2 flex justify-center bg-[#7fce9e] text-[#2f4b3a] text-3xl font-bold rounded-md">
+          <p>{gameState[playerSeat]}</p>
+        </div>
+      );
+    } else {
+      return (
+        <div className="w-1/2 flex justify-center font-semibold">
+          <p>{gameState[playerSeat]}</p>
+        </div>
+      );
+    }
+  }
+  function displayBetInput() {
+    if (
+      betButtonClicked &&
+      player &&
+      gameState[playerSeat] === player.playerName
+    ) {
+      return (
+        <form
+          className={`absolute ${location} flex justify-center`}
+          onSubmit={handleBet}
+        >
+          <input
+            className="bg-[#d7ffe4] h-9 w-30 rounded-l-md text-[#2f4b3a] font-bold text-center text-lg"
+            onChange={(e) => onBet(e.target.value)}
+            type="number"
+            min="1"
+            max={gameState[playerBalance]}
+          />
+          <button
+            className="bg-[#7fce9e] text-[#2f4b3a] font-bold h-9 w-11 rounded-r-md hover:scale-110 cursor-pointer relative -top-px"
+            type="submit"
+          >
+            Bet
+          </button>
+        </form>
+      );
+    }
+  }
+
+  function displayPlayerBalance() {
+    if (!gameState[playerSeat]) {
+      return null;
+    }
+    const balance = playerFinalBalance ?? playerBalanceValue;
+    return (
+      <>
+        <p>Balance:&nbsp;</p>
+        <p
+          key={balance}
+          className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
+        >
+          {balance}
+        </p>
+      </>
+    );
+  }
+
+  function displayHandContent() {
+    if (player && gameState[playerSeat] === player.playerName) {
+      return onShowHand(ownHand);
+    }
+    if (playerPublicHand.length > 0) {
+      return onShowHand(playerPublicHand);
+    }
+    if (playerPublicActiveHand.length > 0) {
+      return onShowHand(playerPublicActiveHand);
+    }
+    return onShowCardBacks(gameState[cardNumber]);
+  }
+
+  function displayPlayerHandValue() {
+    if (!(player && gameState[playerSeat] === player.playerName) &&
+        playerPublicHand.length < 1 && 
+        playerPublicActiveHand.length < 1) {
+      return null;
+    }
+    let handValue = 0;
+    if (player && gameState[playerSeat] === player.playerName) {
+      handValue = ownHandValue;
+    } else if (playerPublicHand.length > 0) {
+      handValue = playerPublicHandValue;
+    } else if (playerPublicActiveHand.length > 0) {
+      handValue = playerPublicActiveHandValue;
+    }
+    return (
+      <>
+        <p>Sum: &nbsp;</p>
+        <p
+          key={handValue}
+          className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
+        >
+          {handValue}
+        </p>
+      </>
+    )
+  }
+
   return (
     <div className="w-2/3 h-full flex flex-col">
-      <div className="w-full h-1/3 flex flex-col place-items-center justify-end">
-        {gameState[playerSeat] === gameState.turnName ? (
-          <div className="w-1/2 flex justify-center bg-[#7fce9e] text-[#2f4b3a] text-lg font-semibold rounded-md">
-            <p>{gameState[playerSeat]}</p>
-          </div>
-        ) : (
-          <div className="w-1/2 flex justify-center">
-            <p>{gameState[playerSeat]}</p>
-          </div>
-        )}
+      <div className="w-full h-1/3 flex flex-col place-items-center justify-end text-2xl">
+        {displayPlayerName()}
 
-        {betButtonClicked &&
-          player &&
-          gameState[playerSeat] === player.playerName && (
-            <form className={`absolute ${location}`} onSubmit={handleBet}>
-              <input
-                className="bg-[#d7ffe4] h-8 w-28 rounded-l-md text-[#2f4b3a] font-bold text-center text-lg"
-                onChange={(e) => onBet(e.target.value)}
-                type="number"
-                min="1"
-                max={gameState[playerBalance]}
-              />
-              <button
-                className="bg-[#7fce9e] text-[#2f4b3a] font-bold h-8 w-9 rounded-r-md hover:scale-110 cursor-pointer relative -top-px"
-                type="submit"
-              >
-                Bet
-              </button>
-            </form>
-          )}
-        <div className="flex">
-          {gameState[playerSeat] && (
-            <>
-              <p>Balance: &nbsp;</p>
-              {playerFinalBalance ? (
-                <p
-                  key={playerFinalBalance}
-                  className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-                >
-                  {playerFinalBalance}
-                </p>
-              ) : (
-                <p
-                  key={playerBalanceValue}
-                  className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-                >
-                  {playerBalanceValue}
-                </p>
-              )}
-            </>
-          )}
+        {displayBetInput()}
+        <div className="flex text-lg">
+          {displayPlayerBalance()}
         </div>
       </div>
-      {player && gameState[playerSeat] === player.playerName ? (
-        <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-          {onShowHand(ownHand)}
-        </div>
-      ) : playerPublicHand.length > 0 ? (
-        <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-          {onShowHand(playerPublicHand)}
-        </div>
-      ) : playerPublicActiveHand.length > 0 ? (
-        <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-          {onShowHand(playerPublicActiveHand)}
-        </div>
-      ) : (
-        <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
-          {onShowCardBacks(gameState[cardNumber])}
-        </div>
-      )}
+      <div className="w-full h-1/2 flex flex-wrap place-items-center justify-center">
+        {displayHandContent()}
+      </div>
 
       <div className="w-full h-1/6 flex justify-around">
         <div className="flex">
-          {player && gameState[playerSeat] === player.playerName ? (
-            <>
-              <p>Sum: &nbsp;</p>
-              <p
-                key={ownHandValue}
-                className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-              >
-                {ownHandValue}
-              </p>
-            </>
-          ) : playerPublicHand.length > 0 ? (
-            <>
-              <p>Sum: &nbsp;</p>
-              <p
-                key={playerPublicHandValue}
-                className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-              >
-                {playerPublicHandValue}
-              </p>
-            </>
-          ) : (
-            playerPublicActiveHand.length > 0 && (
-              <>
-                <p>Sum: &nbsp;</p>
-                <p
-                  key={playerPublicActiveHandValue}
-                  className="animate-ping animate-once animate-duration-500 animate-delay-100 animate-ease-in-out"
-                >
-                  {playerPublicActiveHandValue}
-                </p>
-              </>
-            )
-          )}
+          {displayPlayerHandValue()}
         </div>
       </div>
     </div>

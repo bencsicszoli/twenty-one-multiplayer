@@ -130,8 +130,8 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
     public void sendFirstRound(@Payload GameIdRequest request, Principal principal) {
         ResetHandDTO resetOwnHandDTO = new ResetHandDTO("Reset your hand", "reset.ownHand");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
-        //shuffleService.addShuffledDeck(request.gameId());
-        shuffleService.useFakeDeck(request.gameId());
+        shuffleService.addShuffledDeck(request.gameId());
+        //shuffleService.useFakeDeck(request.gameId());
         Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
         game.setRemainingCards(32);
         game.setState(GameState.NEW);
