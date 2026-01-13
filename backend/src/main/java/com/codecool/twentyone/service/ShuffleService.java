@@ -63,4 +63,13 @@ public class ShuffleService {
         }
         shuffleRepository.saveAll(fakeCards);
     }
+
+    public void useShuffleAgain(Long gameId) {
+        List<Shuffle> existingDeck = shuffleRepository.findAll();
+        List<Shuffle> fakeDeck = new ArrayList<>();
+        for (Shuffle shuffle : existingDeck) {
+            fakeDeck.add(new Shuffle(shuffle.getCard(), gameId, shuffle.getCardOrder()));
+        }
+        shuffleRepository.saveAll(fakeDeck);
+    }
 }

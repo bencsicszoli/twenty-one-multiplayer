@@ -1,4 +1,27 @@
 function MessagesPlace({ gameState, onDisplayInformation, normalInfo, finalInfo }) {
+
+  function displayMessage() {
+    if (finalInfo) {
+      return (
+        <p
+          className="text-center text-sm font-semibold animate-jump-in pb-2 2xl:text-base 2xl:font-bold"
+          key={finalInfo}
+        >
+          {onDisplayInformation(finalInfo)}
+        </p>
+      )
+    } else {
+      return (
+        <p
+          className="text-center text-base font-bold animate-jump-in"
+          key={normalInfo}
+        >
+          {onDisplayInformation(normalInfo)}
+        </p>
+      )
+    }
+  }
+  
   return (
     <div className="w-full h-1/4 flex flex-col bg-[#d7ffe4] text-[#2f4b3a] rounded-xl">
       <div className="w-full h-1/3 flex justify-around place-items-center">
@@ -10,17 +33,7 @@ function MessagesPlace({ gameState, onDisplayInformation, normalInfo, finalInfo 
         </p>
       </div>
       <div className="w-full h-2/3 flex justify-around place-items-center">
-        {finalInfo ? (<p
-          className="text-center text-base font-bold animate-jump-in pb-2"
-          key={finalInfo}
-        >
-          {onDisplayInformation(finalInfo)}
-        </p>) : (<p
-          className="text-center text-base font-bold animate-jump-in"
-          key={normalInfo}
-        >
-          {onDisplayInformation(normalInfo)}
-        </p>)}
+        {displayMessage()}
       </div>
     </div>
   );

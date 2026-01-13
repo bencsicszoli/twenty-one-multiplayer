@@ -1,41 +1,43 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import bellSvg from '../assets/bell.svg';
-import heartSvg from '../assets/heart.svg';
-import acornSvg from '../assets/acorn.svg';
-import leafSvg from '../assets/leaf.svg';
-import { usePlayer } from '../context/PlayerContext.jsx';
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import bellSvg from "../assets/bell.svg";
+import heartSvg from "../assets/heart.svg";
+import acornSvg from "../assets/acorn.svg";
+import leafSvg from "../assets/leaf.svg";
+import { usePlayer } from "../context/PlayerContext.jsx";
+import CardTableDecoration from "../pageComponents/CardTableDecoration.jsx";
+import InputField from "../pageComponents/InputField.jsx";
 
 function LoginPage() {
   const { setPlayer, token, setToken } = usePlayer();
-  const [playerName, setPlayerName] = useState('');
-  const [password, setPassword] = useState('');
+  const [playerName, setPlayerName] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (token) localStorage.setItem('jwtToken', token);
+    if (token) localStorage.setItem("jwtToken", token);
   }, [token]);
 
   async function postLogin() {
     try {
-        const response = await fetch(`/api/user/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(`/api/user/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ playerName, password }),
       });
       if (!response.ok) {
         throw new Error((await response.json()).message);
       }
       const { jwt } = await response.json();
-      localStorage.setItem('jwtToken', jwt);
+      localStorage.setItem("jwtToken", jwt);
       setToken(jwt);
 
       const playerRes = await fetch(`/api/user/me`, {
-        headers: { Authorization: 'Bearer ' + jwt },
+        headers: { Authorization: "Bearer " + jwt },
       });
-      if (!playerRes.ok) throw new Error('Could not fetch user info');
+      if (!playerRes.ok) throw new Error("Could not fetch user info");
       const playerData = await playerRes.json();
       setPlayer(playerData);
 
@@ -48,7 +50,7 @@ function LoginPage() {
 
   function switchToRegister() {
     navigate(`/register`);
-  } 
+  }
 
   function handleLogin(e) {
     e.preventDefault();
@@ -57,37 +59,19 @@ function LoginPage() {
 
   useEffect(() => {
     if (isLoggedIn) {
-      navigate('/menu');
+      navigate("/menu");
     }
   }, [isLoggedIn, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-table-background px-4 py-8">
-      <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full max-w-[80rem]">
-        <div className="w-full h-[42rem] bg-poker-table rounded-[70px] shadow-2xl flex flex-col items-center justify-center relative text-white px-6 sm:px-8">
-          <img
-            src={bellSvg}
-            alt="Bell"
-            className="absolute top-6 right-8 w-20 md:w-28 opacity-80 rotate-12 pointer-events-none"
-          />
-          <img
-            src={heartSvg}
-            alt="Heart"
-            className="absolute bottom-8 left-8 w-20 md:w-28 opacity-80 -rotate-12 pointer-events-none"
-          />
-          <img
-            src={acornSvg}
-            alt="Acorn"
-            className="absolute bottom-8 right-8 w-20 md:w-28 opacity-80 rotate-6 pointer-events-none"
-          />
-          <img
-            src={leafSvg}
-            alt="Leaf"
-            className="absolute top-6 left-8 w-20 md:w-28 opacity-80 -rotate-6 pointer-events-none"
-          />
+      <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full max-w-7xl">
+        <div className="w-full h-168 bg-poker-table rounded-[70px] shadow-2xl flex flex-col items-center justify-center relative text-white px-6 sm:px-8">
+          
+          <CardTableDecoration />
 
           <h2 className="text-4xl font-extrabold  mb-11 drop-shadow-lg text-center text-white">
-            Welcome to 21 The Card Game!
+            Welcome to 21 Card Game!
           </h2>
           <div className="w-full bg-white border border-gray-200 rounded-lg shadow dark:border-gray-700 dark:bg-gray-800 md:mt-0 sm:max-w-md xl:p-0">
             <div className="p-6 space-y-4 md:space-y-6 sm:p-8">
@@ -95,36 +79,33 @@ function LoginPage() {
                 Sign in to your account
               </h1>
               <form className="space-y-4 md:space-y-6" onSubmit={handleLogin}>
-                <div>
-                  <label htmlFor="username" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Your username
-                  </label>
-                  <input
-                    type="text"
-                    name="username"
-                    id="username"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    placeholder="username"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="password" className="block mb-2 text-sm font-medium text-gray-900 dark:text-white">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    name="pwd"
-                    id="password"
-                    className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-primary-600 focus:border-primary-600 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    placeholder="••••••••"
-                    value={password}
-                    autoComplete='off'
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-                {error && <p className="text-sm font-light text-red-500 dark:text-red-400">{error}</p>}
+                <InputField
+                  htmlFor="username"
+                  labelText="Your username"
+                  inputType="text"
+                  inputName="username"
+                  inputId="username"
+                  placeholderText="username"
+                  inputValue={playerName}
+                  onInputValue={setPlayerName}
+                />
+                <InputField
+                  htmlFor="pwd"
+                  labelText="Password"
+                  inputType="password"
+                  inputName="pwd"
+                  inputId="pwd"
+                  placeholderText="••••••••"
+                  inputValue={password}
+                  onInputValue={setPassword}
+                  autoComplete="off"
+                />
+                
+                {error && (
+                  <p className="text-sm font-light text-red-500 dark:text-red-400">
+                    {error}
+                  </p>
+                )}
                 <div className="flex items-center justify-between">
                   <div className="flex items-start">
                     <div className="flex items-center h-5">
@@ -136,26 +117,39 @@ function LoginPage() {
                       />
                     </div>
                     <div className="ml-3 text-sm">
-                      <label htmlFor="remember" className="text-gray-500 dark:text-gray-300">
+                      <label
+                        htmlFor="remember"
+                        className="text-gray-500 dark:text-gray-300"
+                      >
                         Remember me
                       </label>
                     </div>
                   </div>
-                  <a href="#" className="text-sm font-light text-gray-500 dark:text-white">
+                  <a
+                    href="#"
+                    className="text-sm font-light text-gray-500 dark:text-white"
+                  >
                     Forgot password?
                   </a>
                 </div>
                 <button
                   type="submit"
-                  className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+                  className="w-full text-white bg-blue-600 hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 cursor-pointer font-medium rounded-lg text-sm px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
                 >
                   Sign in
                 </button>
-                <p className="text-sm font-light text-gray-500 dark:text-white">Don’t have an account yet? </p>
               </form>
-              <button onClick={switchToRegister} className="text-sm font-light text-gray-500 dark:text-white">
-                Sign up
-              </button>
+              <div className="flex flex-col items-center justify-center gap-2 mt-4">
+                <p className="text-sm font-light text-gray-500 dark:text-white">
+                  Don’t have an account yet?{" "}
+                </p>
+                <button
+                  onClick={switchToRegister}
+                  className="w-full text-white bg-[hsl(221,45%,40%)] hover:bg-blue-700 focus:ring-4 focus:outline-none focus:ring-blue-300 cursor-pointer font-medium rounded-lg text-sm px-5 py-2.5 text-center"
+                >
+                  Sign up
+                </button>
+              </div>
             </div>
           </div>
         </div>
