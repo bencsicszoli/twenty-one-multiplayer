@@ -898,7 +898,7 @@ function GamePage() {
                   playerSeat="player4"
                   playerBalance="player4Balance"
                   cardNumber="player4CardNumber"
-                  location="top-76"
+                  location="top-94"
                   playerPublicActiveHand={player4PublicActiveHand}
                   playerPublicActiveHandValue={player4PublicHandValue}
                   playerBalanceValue={player4Balance}
