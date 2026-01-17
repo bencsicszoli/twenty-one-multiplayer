@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.NoSuchElementException;
 
 @Service
 public class GameService {
@@ -70,84 +71,125 @@ public class GameService {
 
     @Transactional
     public GameMessage pullCard(Long gameId, String playerName) {
-        Player currentPlayer = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
-        currentPlayer.setCardNumber(currentPlayer.getCardNumber() + 1);
+        Player currentPlayer = loadPlayer(playerName);
+        Game currentGame = loadGame(gameId);
+        Dealer dealer = loadDealer(currentGame.getDealerId());
+        dealCard(currentPlayer, currentGame);
+        int handValue = playerHandRepository.getHandValue(currentPlayer.getId());
+        int cardsNumber = playerHandRepository.getHandSize(currentPlayer.getId());
+        evaluateAfterCardDraw(currentPlayer,currentGame, dealer, handValue, cardsNumber);
+        if (currentGame.isCallNextTurnRequired()) {
+            setNextTurnName(currentGame, playerName);
+            currentGame.setCallNextTurnRequired(false);
+        }
+        gameRepository.save(currentGame);
         playerRepository.save(currentPlayer);
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        dealerRepository.save(dealer);
+        return messageService.gameToMessage(currentGame);
+    }
+
+    private void dealCard(Player currentPlayer, Game currentGame) {
+        currentPlayer.setCardNumber(currentPlayer.getCardNumber() + 1);
+        //playerRepository.save(currentPlayer);
         currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
-        Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
-        Card card = shuffleRepository.findCardByGameIdAndCardOrder(gameId, currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
+        //Card card = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
+        Card card = loadNextCard(currentGame.getGameId(), currentGame.getCardOrder());
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
         PlayerHand handCard = new PlayerHand();
         handCard.setCardValue(card.getValue());
         handCard.setFrontImagePath(card.getFrontImagePath());
         handCard.setPlayer(currentPlayer);
         playerHandRepository.save(handCard);
-        int handValue = playerHandRepository.getHandValue(currentPlayer.getId());
-        int cardsNumber = playerHandRepository.getHandSize(currentPlayer.getId());
+    }
+
+    private void evaluateAfterCardDraw(Player currentPlayer, Game currentGame, Dealer dealer, int handValue, int cardsNumber) {
         if (currentPlayer.getPlayerState().equals(PlayerState.OHNE_ACE) && handValue <= 14) {
             currentPlayer.setPlayerState(PlayerState.WAITING_CARD);
         } else if (handValue > 14 && handValue < 20) {
             currentPlayer.setPlayerState(PlayerState.COULD_STOP);
         } else if (handValue > 19 && handValue < 22) {
-            currentPlayer.setPlayerState(PlayerState.ENOUGH);
-            currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'"));
-            setNextTurnName(currentGame, currentPlayer.getPlayerName());
-            playerRepository.save(currentPlayer);
-            gameRepository.save(currentGame);
-            return messageService.gameToMessage(currentGame);
+            handleStand(currentPlayer, currentGame);
         } else if (handValue == 22 && cardsNumber == 2) {
-            currentPlayer.setPlayerState(PlayerState.FIRE);
-            currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
-            currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " with aces-only hand won " + currentPlayer.getPot() / 2 + " $!"));
-            setNextTurnName(currentGame, currentPlayer.getPlayerName());
-            currentPlayer.setPot(0);
-            currentPlayer.setGames(currentPlayer.getGames() + 1);
-            currentPlayer.setWins(currentPlayer.getWins() + 1);
-            if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(playerName)) {
-                currentGame.setPlayer1Balance(currentPlayer.getBalance());
-                currentGame.setPublicHand1Exists(true);
-            } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(playerName)) {
-                currentGame.setPlayer2Balance(currentPlayer.getBalance());
-                currentGame.setPublicHand2Exists(true);
-            } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(playerName)) {
-                currentGame.setPlayer3Balance(currentPlayer.getBalance());
-                currentGame.setPublicHand3Exists(true);
-            } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(playerName)) {
-                currentGame.setPlayer4Balance(currentPlayer.getBalance());
-                currentGame.setPublicHand4Exists(true);
-            }
-            playerRepository.save(currentPlayer);
-            gameRepository.save(currentGame);
-            return messageService.gameToMessage(currentGame);
-
+            handleFire(currentPlayer, currentGame);
         } else if (handValue >= 22 && !currentPlayer.getPlayerState().equals(PlayerState.OHNE_ACE)) {
-            currentPlayer.setPlayerState(PlayerState.MUCH);
-            dealer.setBalance(dealer.getBalance() + currentPlayer.getPot());
-            currentGame.setDealerBalance(dealer.getBalance());
-            currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " busted and lost " + currentPlayer.getPot() / 2 + " $!");
-            setNextTurnName(currentGame, currentPlayer.getPlayerName());
-            currentPlayer.setPot(0);
-            currentPlayer.setGames(currentPlayer.getGames() + 1);
-            currentPlayer.setLosses(currentPlayer.getLosses() + 1);
-            if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(playerName)) {
-                currentGame.setPublicHand1Exists(true);
-            } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(playerName)) {
-                currentGame.setPublicHand2Exists(true);
-            } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(playerName)) {
-                currentGame.setPublicHand3Exists(true);
-            } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(playerName)) {
-                currentGame.setPublicHand4Exists(true);
-            }
-            playerRepository.save(currentPlayer);
-            gameRepository.save(currentGame);
-            return messageService.gameToMessage(currentGame);
+            handleBust(currentPlayer, currentGame, dealer);
         }
-        gameRepository.save(currentGame);
-        playerRepository.save(currentPlayer);
-        dealerRepository.save(dealer);
-        GameMessage message = messageService.gameToMessage(currentGame);
-        return message;
+    }
+
+    private void handleStand(Player currentPlayer, Game currentGame) {
+        currentPlayer.setPlayerState(PlayerState.ENOUGH);
+        currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'"));
+        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
+        currentGame.setCallNextTurnRequired(true);
+    }
+
+    private void handleFire(Player currentPlayer, Game currentGame) {
+        currentPlayer.setPlayerState(PlayerState.FIRE);
+        currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
+        currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " with aces-only hand won " + currentPlayer.getPot() / 2 + " $!"));
+        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
+        currentGame.setCallNextTurnRequired(true);
+        currentPlayer.setPot(0);
+        currentPlayer.setGames(currentPlayer.getGames() + 1);
+        currentPlayer.setWins(currentPlayer.getWins() + 1);
+        setPublicHandWhenFire(currentPlayer, currentGame);
+    }
+
+    private void handleBust(Player currentPlayer, Game currentGame, Dealer dealer) {
+        currentPlayer.setPlayerState(PlayerState.MUCH);
+        dealer.setBalance(dealer.getBalance() + currentPlayer.getPot());
+        currentGame.setDealerBalance(dealer.getBalance());
+        currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " busted and lost " + currentPlayer.getPot() / 2 + " $!");
+        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
+        currentGame.setCallNextTurnRequired(true);
+        currentPlayer.setPot(0);
+        currentPlayer.setGames(currentPlayer.getGames() + 1);
+        currentPlayer.setLosses(currentPlayer.getLosses() + 1);
+        setPublicHandWhenBust(currentPlayer, currentGame);
+    }
+
+    private void setPublicHandWhenFire(Player currentPlayer, Game currentGame) {
+        if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPlayer1Balance(currentPlayer.getBalance());
+            currentGame.setPublicHand1Exists(true);
+        } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPlayer2Balance(currentPlayer.getBalance());
+            currentGame.setPublicHand2Exists(true);
+        } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPlayer3Balance(currentPlayer.getBalance());
+            currentGame.setPublicHand3Exists(true);
+        } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPlayer4Balance(currentPlayer.getBalance());
+            currentGame.setPublicHand4Exists(true);
+        }
+    }
+
+    private void setPublicHandWhenBust(Player currentPlayer, Game currentGame) {
+        if (currentGame.getPlayer1() != null && currentGame.getPlayer1().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPublicHand1Exists(true);
+        } else if (currentGame.getPlayer2() != null && currentGame.getPlayer2().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPublicHand2Exists(true);
+        } else if (currentGame.getPlayer3() != null && currentGame.getPlayer3().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPublicHand3Exists(true);
+        } else if (currentGame.getPlayer4() != null && currentGame.getPlayer4().equals(currentPlayer.getPlayerName())) {
+            currentGame.setPublicHand4Exists(true);
+        }
+    }
+
+    private Player loadPlayer(String playerName) {
+        return playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+    }
+
+    private Game loadGame(Long gameId) {
+        return gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+    }
+
+    private Dealer loadDealer(Long dealerId) {
+        return dealerRepository.findById(dealerId).orElseThrow(() -> new RuntimeException("Dealer not found"));
+    }
+
+    private Card loadNextCard(Long gameId, int cardOrder) {
+        return shuffleRepository.findCardByGameIdAndCardOrder(gameId, cardOrder).orElseThrow(() -> new RuntimeException("Card not found"));
     }
 
     public PlayerStateDTO getPlayerState(String playerName) {
@@ -156,29 +198,9 @@ public class GameService {
     }
 
     public GameMessage passTurn(Game currentGame, String turnPlayerName) {
-        String[] players = {currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3(), currentGame.getPlayer4(), currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3()};
-        for (int i = 0; i < 4; i++) {
-            if (players[i] != null && players[i].equals(turnPlayerName)) {
-                if (players[i + 1] != null && playerRepository.getPlayerStateByPlayerName(players[i + 1]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 1]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else if (players[i + 2] != null && playerRepository.getPlayerStateByPlayerName(players[i + 2]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 2]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else if (players[i + 3] != null && playerRepository.getPlayerStateByPlayerName(players[i + 3]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 3]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else {
-                    currentGame.setTurnName("Dealer");
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                }
-            }
-        }
-        return null;
+        setNextTurnName(currentGame, turnPlayerName);
+        gameRepository.save(currentGame);
+        return messageService.gameToMessage(currentGame);
     }
 
     public GameMessage passTurnWhenStand(Long gameId, String turnPlayerName) {
@@ -193,29 +215,7 @@ public class GameService {
         playerRepository.save(currentPlayer);
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'");
-        String[] players = {currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3(), currentGame.getPlayer4(), currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3()};
-        for (int i = 0; i < 4; i++) {
-            if (players[i] != null && players[i].equals(turnPlayerName)) {
-                if (players[i + 1] != null && playerRepository.getPlayerStateByPlayerName(players[i + 1]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 1]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else if (players[i + 2] != null && playerRepository.getPlayerStateByPlayerName(players[i + 2]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 2]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else if (players[i + 3] != null && playerRepository.getPlayerStateByPlayerName(players[i + 3]).equals(PlayerState.WAITING_CARD)) {
-                    currentGame.setTurnName(players[i + 3]);
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                } else {
-                    currentGame.setTurnName("Dealer");
-                    gameRepository.save(currentGame);
-                    return messageService.gameToMessage(currentGame);
-                }
-            }
-        }
-        return null;
+        return passTurn(currentGame, turnPlayerName);
     }
 
     public PlayerHandDTO getHand(String playerName) {
@@ -232,22 +232,18 @@ public class GameService {
         return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.withOhneAce");
     }
 
-    public void setNextTurnName(Game currentGame, String turnPlayerName) {
+    private void setNextTurnName(Game currentGame, String turnPlayerName) {
         String[] players = {currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3(), currentGame.getPlayer4(), currentGame.getPlayer1(), currentGame.getPlayer2(), currentGame.getPlayer3()};
         for (int i = 0; i < 4; i++) {
             if (players[i] != null && players[i].equals(turnPlayerName)) {
                 if (players[i + 1] != null && playerRepository.getPlayerStateByPlayerName(players[i + 1]).equals(PlayerState.WAITING_CARD)) {
                     currentGame.setTurnName(players[i + 1]);
-                    gameRepository.save(currentGame);
                 } else if (players[i + 2] != null && playerRepository.getPlayerStateByPlayerName(players[i + 2]).equals(PlayerState.WAITING_CARD)) {
                     currentGame.setTurnName(players[i + 2]);
-                    gameRepository.save(currentGame);
                 } else if (players[i + 3] != null && playerRepository.getPlayerStateByPlayerName(players[i + 3]).equals(PlayerState.WAITING_CARD)) {
                     currentGame.setTurnName(players[i + 3]);
-                    gameRepository.save(currentGame);
                 } else {
                     currentGame.setTurnName("Dealer");
-                    gameRepository.save(currentGame);
                 }
             }
         }
@@ -309,6 +305,7 @@ public class GameService {
             Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
             GameMessage firstMessage = messageService.gameToMessage(currentGame);
             DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
+            //int dealerHandValue = firstCardDTO.handValue();
             firstMessage.setDealerPublicHand(firstCardDTO);
             messages.add(firstMessage);
             int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //a DealerHandDTO-ban benne van
@@ -353,8 +350,8 @@ public class GameService {
                     DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
                     gameMessage.setDealerPublicHand(handDTO);
                     messages.add(gameMessage);
-                }
-                else if (announcedOhneAce && dealerHandValue == 22) {
+
+                } else if (announcedOhneAce && dealerHandValue == 22) {
                     GameMessage gameMessage = messageService.gameToMessage(currentGame);
                     DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
                     gameMessage.setDealerPublicHand(handDTO);
@@ -376,7 +373,6 @@ public class GameService {
                     gameMessage.setDealerPublicHand(handDTO);
                     messages.add(gameMessage);
                 }
-
             }
             String roundResult = "";
             for (Player player : playersWithActiveHands) {
@@ -422,14 +418,14 @@ public class GameService {
     }
 
     public DealerHandDTO getDealerHand(Long gameId) {
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
-        List<DealerHand> dealerCards = dealerHandRepository.findAllByDealerId(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new NoSuchElementException("Game not found"));
+        List<DealerHand> dealerCards = dealerHandRepository.findAllByDealerId(currentGame.getDealerId()).orElseThrow(() -> new NoSuchElementException("Cards not found"));
         List<CardDTO> dealerCardDTOs = new ArrayList<>();
         for (DealerHand dealerHand : dealerCards) {
             CardDTO cardDTO = new CardDTO(dealerHand.getCardValue(), dealerHand.getFrontImagePath());
             dealerCardDTOs.add(cardDTO);
         }
-        int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId());
+        int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //dealerCards-ból nem gyorsabb?
         return new DealerHandDTO(dealerCardDTOs, dealerHandValue);
     }
 

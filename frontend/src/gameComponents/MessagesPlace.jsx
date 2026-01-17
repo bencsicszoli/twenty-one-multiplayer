@@ -13,7 +13,7 @@ function MessagesPlace({ gameState, onDisplayInformation, normalInfo, finalInfo 
     } else {
       return (
         <p
-          className="text-center text-base font-bold animate-jump-in"
+          className="text-center text-base font-semibold animate-jump-in 2xl:text-lg 2xl:font-bold"
           key={normalInfo}
         >
           {onDisplayInformation(normalInfo)}
