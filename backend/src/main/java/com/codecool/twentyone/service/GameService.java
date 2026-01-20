@@ -222,10 +222,12 @@ public class GameService {
         Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
         List<PlayerHand> ownCards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
         List<CardDTO> cardDTOList = new ArrayList<>();
+        int handValue = 0;
         for (PlayerHand card : ownCards) {
             cardDTOList.add(new CardDTO(card.getCardValue(), card.getFrontImagePath()));
+            handValue += card.getCardValue();
         }
-        int handValue = playerHandRepository.getHandValue(player.getId());
+        //int handValue = playerHandRepository.getHandValue(player.getId());
         if (!player.getPlayerState().equals(PlayerState.OHNE_ACE)) {
             return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.update");
         }
@@ -435,89 +437,41 @@ public class GameService {
         }
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
-        Player player;
         if (turnName.equals(currentGame.getPlayer1())) {
-            player = playerRepository.findByPlayerName(currentGame.getPlayer1()).orElseThrow(() -> new RuntimeException("Player not found"));
-            if (player.getBalance() < bet) {
-                throw new RuntimeException("Player's balance is less than bet");
-            }
-            if (dealer.getBalance() < bet) {
-                throw new RuntimeException("Dealer balance is less than bet");
-            }
-            player.setBalance(player.getBalance() - bet);
-            player.setPot(player.getPot() + bet * 2);
-            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
-                player.setPlayerState(PlayerState.WAITING_CARD);
-            }
-            playerRepository.save(player);
-            currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
+            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer1());
             currentGame.setPlayer1Balance(currentGame.getPlayer1Balance() - bet);
-            currentGame.setInformation(player.getPlayerName().toUpperCase() + " placed a " + bet + " $ bet!");
-            dealer.setBalance(dealer.getBalance() - bet);
-            dealerRepository.save(dealer);
-            gameRepository.save(currentGame);
         } else if (turnName.equals(currentGame.getPlayer2())) {
-            player = playerRepository.findByPlayerName(currentGame.getPlayer2()).orElseThrow(() -> new RuntimeException("Player not found"));
-            if (player.getBalance() < bet) {
-                throw new RuntimeException("Player's balance is less than bet");
-            }
-            if (dealer.getBalance() < bet) {
-                throw new RuntimeException("Dealer's balance is less than bet");
-            }
-            player.setBalance(player.getBalance() - bet);
-            player.setPot(player.getPot() + bet * 2);
-            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
-                player.setPlayerState(PlayerState.WAITING_CARD);
-            }
-            playerRepository.save(player);
-            currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
+            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer2());
             currentGame.setPlayer2Balance(currentGame.getPlayer2Balance() - bet);
-            currentGame.setInformation(player.getPlayerName().toUpperCase() + " placed a " + bet + " $ bet!");
-            dealer.setBalance(dealer.getBalance() - bet);
-            dealerRepository.save(dealer);
-            gameRepository.save(currentGame);
         } else if (turnName.equals(currentGame.getPlayer3())) {
-            player = playerRepository.findByPlayerName(currentGame.getPlayer3()).orElseThrow(() -> new RuntimeException("Player not found"));
-            if (player.getBalance() < bet) {
-                throw new RuntimeException("Player's balance is less than bet");
-            }
-            if (dealer.getBalance() < bet) {
-                throw new RuntimeException("Dealer balance is less than bet");
-            }
-            player.setBalance(player.getBalance() - bet);
-            player.setPot(player.getPot() + bet * 2);
-            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
-                player.setPlayerState(PlayerState.WAITING_CARD);
-            }
-            playerRepository.save(player);
-            currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
+            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer3());
             currentGame.setPlayer3Balance(currentGame.getPlayer3Balance() - bet);
-            currentGame.setInformation(player.getPlayerName().toUpperCase() + " placed a " + bet + " $ bet!");
-            dealer.setBalance(dealer.getBalance() - bet);
-            dealerRepository.save(dealer);
-            gameRepository.save(currentGame);
         } else {
-            player = playerRepository.findByPlayerName(currentGame.getPlayer4()).orElseThrow(() -> new RuntimeException("Player not found"));
-            if (player.getBalance() < bet) {
-                throw new RuntimeException("Player's balance is less than bet");
-            }
-            if (dealer.getBalance() < bet) {
-                throw new RuntimeException("Dealer balance is less than bet");
-            }
-            player.setBalance(player.getBalance() - bet);
-            player.setPot(player.getPot() + bet * 2);
-            if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
-                player.setPlayerState(PlayerState.WAITING_CARD);
-            }
-            playerRepository.save(player);
-            currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
+            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer4());
             currentGame.setPlayer4Balance(currentGame.getPlayer4Balance() - bet);
-            currentGame.setInformation(player.getPlayerName().toUpperCase() + " placed a " + bet + " $ bet!");
-            dealer.setBalance(dealer.getBalance() - bet);
-            dealerRepository.save(dealer);
-            gameRepository.save(currentGame);
         }
+        gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
+    }
+
+    private void placeBetProcess(Game currentGame, int bet, Dealer dealer, String turnName) {
+        Player player = playerRepository.findByPlayerName(turnName).orElseThrow(() -> new RuntimeException("Player not found"));
+        if (player.getBalance() < bet) {
+            throw new RuntimeException("Player's balance is less than bet");
+        }
+        if (dealer.getBalance() < bet) {
+            throw new RuntimeException("Dealer balance is less than bet");
+        }
+        player.setBalance(player.getBalance() - bet);
+        player.setPot(player.getPot() + bet * 2);
+        if (!player.getPlayerState().equals(PlayerState.OHNE_ACE) && bet > 0) {
+            player.setPlayerState(PlayerState.WAITING_CARD);
+        }
+        playerRepository.save(player);
+        currentGame.setDealerBalance(currentGame.getDealerBalance() - bet);
+        currentGame.setInformation(player.getPlayerName().toUpperCase() + " placed a " + bet + " $ bet!");
+        dealer.setBalance(dealer.getBalance() - bet);
+        dealerRepository.save(dealer);
     }
 
     @Transactional

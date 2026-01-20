@@ -4,6 +4,7 @@ import com.codecool.twentyone.model.dto.GameMessage;
 import com.codecool.twentyone.model.dto.websocketdto.CardDTO;
 import com.codecool.twentyone.model.dto.websocketdto.DealerHandDTO;
 import com.codecool.twentyone.model.dto.websocketdto.PlayerHandDTO;
+import com.codecool.twentyone.model.dto.websocketdto.PlayerStateDTO;
 import com.codecool.twentyone.model.entities.*;
 import com.codecool.twentyone.repository.*;
 import org.junit.jupiter.api.Test;
@@ -173,6 +174,117 @@ public class GameServiceTest {
     }
 
     @Test
+    void raiseBet_shouldModifyGame_when_gameIdAndBetIsValid() {
+        Long gameId = 3L;
+        String turnName = "john";
+        int bet = 3;
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setTurnName(turnName);
+        game.setPlayer2(turnName);
+        game.setPlayer2Balance(60);
+        game.setDealerId(6L);
+        game.setDealerBalance(80);
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+        Dealer dealer = new Dealer();
+        dealer.setId(6L);
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+        Player player = new Player();
+        player.setPlayerName(turnName);
+        player.setBalance(game.getPlayer2Balance());
+        player.setPot(0);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        when(playerRepository.findByPlayerName(turnName)).thenReturn(Optional.of(player));
+
+        gameService.raiseBet(gameId, turnName, bet);
+
+        ArgumentCaptor<Game> gameArgumentCaptor = ArgumentCaptor.forClass(Game.class);
+        verify(gameRepository, times(1)).save(gameArgumentCaptor.capture());
+        Game capturedGame = gameArgumentCaptor.getValue();
+        assertEquals(57, capturedGame.getPlayer2Balance());
+        assertEquals("JOHN placed a 3 $ bet!", capturedGame.getInformation());
+        assertEquals(77, capturedGame.getDealerBalance());
+
+        ArgumentCaptor<Player> playerCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerCaptor.capture());
+        Player capturedPlayer = playerCaptor.getValue();
+        assertEquals(57, capturedPlayer.getBalance());
+        assertEquals(6, capturedPlayer.getPot());
+
+        ArgumentCaptor<Dealer> dealerCaptor = ArgumentCaptor.forClass(Dealer.class);
+        verify(dealerRepository, times(1)).save(dealerCaptor.capture());
+        Dealer capturedDealer = dealerCaptor.getValue();
+        assertEquals(77, capturedDealer.getBalance());
+    }
+
+    @Test
+    void raiseBet_shouldThrowException_when_betIsNegative() {
+        Long gameId = 3L;
+        String turnName = "john";
+        int bet = -2;
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> gameService.raiseBet(gameId, turnName, bet));
+        assertEquals("Bet cannot be negative", exception.getMessage());
+    }
+
+    @Test
+    void raiseBet_shouldThrowException_when_betIsMoreThanPlayerBalance() {
+        Long gameId = 3L;
+        String turnName = "john";
+        int bet = 30;
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setTurnName(turnName);
+        game.setPlayer1(turnName);
+        game.setPlayer1Balance(20);
+        game.setDealerId(6L);
+        game.setDealerBalance(80);
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+        Dealer dealer = new Dealer();
+        dealer.setId(6L);
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+        Player player = new Player();
+        player.setPlayerName(turnName);
+        player.setBalance(game.getPlayer1Balance());
+        player.setPot(0);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        when(playerRepository.findByPlayerName(turnName)).thenReturn(Optional.of(player));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> gameService.raiseBet(gameId, turnName, bet));
+        assertEquals("Player's balance is less than bet", exception.getMessage());
+    }
+
+    @Test
+    void raiseBet_shouldThrowException_when_betIsMoreThanDealerBalance() {
+        Long gameId = 3L;
+        String turnName = "john";
+        int bet = 30;
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setTurnName(turnName);
+        game.setPlayer3(turnName);
+        game.setPlayer3Balance(80);
+        game.setDealerId(6L);
+        game.setDealerBalance(25);
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+        Dealer dealer = new Dealer();
+        dealer.setId(6L);
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+        Player player = new Player();
+        player.setPlayerName(turnName);
+        player.setBalance(game.getPlayer3Balance());
+        player.setPot(0);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        when(playerRepository.findByPlayerName(turnName)).thenReturn(Optional.of(player));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> gameService.raiseBet(gameId, turnName, bet));
+        assertEquals("Dealer balance is less than bet", exception.getMessage());
+    }
+
+    @Test
     void pullCard_shouldReturnGameMessage_whenPlayerHasAnAceAndGetsAKing() {
         Player player = new Player();
         player.setId(5L);
@@ -332,6 +444,187 @@ public class GameServiceTest {
         verify(dealerRepository, times(1)).save(any(Dealer.class));
         verify(playerRepository, times(1)).save(any(Player.class));
         verify(playerRepository, times(1)).getPlayerStateByPlayerName(game.getPlayer2());
+    }
+
+    @Test
+    void getPlayerState_shouldReturnPlayerStateDTO_when_PlayerNameIsValid() {
+        String playerName = "John";
+        PlayerState playerState = PlayerState.OHNE_ACE;
+        when(playerRepository.getPlayerStateByPlayerName(playerName)).thenReturn(playerState);
+        PlayerStateDTO expected = new PlayerStateDTO(playerState.toString(), "playerState.update");
+        assertEquals(expected, gameService.getPlayerState(playerName));
+    }
+
+    @Test
+    void passTurnWhenStand_shouldModifyGame_when_handValueIs16AndPlayerStateIsCOULD_STOP() {
+        Long gameId = 3L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setPlayerName(playerName);
+        player.setPlayerState(PlayerState.COULD_STOP);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        when(playerHandRepository.getHandValue(player.getId())).thenReturn(16);
+        Game game = new Game();
+        game.setGameId(gameId);
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+
+        gameService.passTurnWhenStand(gameId, playerName);
+
+        assertEquals("JOHN announced 'stand'", game.getInformation());
+        ArgumentCaptor<Player> captor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(captor.capture());
+        assertEquals(PlayerState.ENOUGH, captor.getValue().getPlayerState());
+    }
+
+    @Test
+    void passTurnWhenStand_shouldThrowRuntimeException_when_handValueIs13() {
+        Long gameId = 3L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setPlayerName(playerName);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        when(playerHandRepository.getHandValue(player.getId())).thenReturn(13);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> gameService.passTurnWhenStand(gameId, playerName));
+        assertEquals("You cannot stop under 15", exception.getMessage());
+    }
+
+    @Test
+    void passTurnWhenStand_shouldThrowRuntimeException_when_handValueIs16AndPlayerStateIsWAITING_CARD() {
+        Long gameId = 3L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setPlayerName(playerName);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        when(playerHandRepository.getHandValue(player.getId())).thenReturn(16);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> gameService.passTurnWhenStand(gameId, playerName));
+        assertEquals("You must take another card after placing a bet", exception.getMessage());
+    }
+
+    @Test
+    void getHand_shouldReturnPlayerHandDTO_when_PlayerStateIsOhneAce() {
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName("John");
+        player.setPlayerState(PlayerState.OHNE_ACE);
+        when(playerRepository.findByPlayerName(player.getPlayerName())).thenReturn(Optional.of(player));
+        PlayerHand card1 = new PlayerHand();
+        card1.setCardValue(9);
+        card1.setFrontImagePath("card1.png");
+        PlayerHand card2 = new PlayerHand();
+        card2.setCardValue(2);
+        card2.setFrontImagePath("card2.png");
+        when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
+        PlayerHandDTO expected = new PlayerHandDTO(player.getPlayerState(), List.of(new CardDTO(card1.getCardValue(), card1.getFrontImagePath()), new CardDTO(card2.getCardValue(), card2.getFrontImagePath())), 11, "hand.withOhneAce");
+        assertEquals(expected, gameService.getHand(player.getPlayerName()));
+    }
+
+    @Test
+    void getHand_shouldReturnPlayerHandDTO_when_PlayerStateIsNotOhneAce() {
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName("John");
+        player.setPlayerState(PlayerState.COULD_STOP);
+        when(playerRepository.findByPlayerName(player.getPlayerName())).thenReturn(Optional.of(player));
+        PlayerHand card1 = new PlayerHand();
+        card1.setCardValue(9);
+        card1.setFrontImagePath("card1.png");
+        PlayerHand card2 = new PlayerHand();
+        card2.setCardValue(4);
+        card2.setFrontImagePath("card2.png");
+        when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
+        PlayerHandDTO expected = new PlayerHandDTO(
+                player.getPlayerState(),
+                List.of(
+                        new CardDTO(card1.getCardValue(), card1.getFrontImagePath()),
+                        new CardDTO(card2.getCardValue(), card2.getFrontImagePath())),
+                13,
+                "hand.update");
+        assertEquals(expected, gameService.getHand(player.getPlayerName()));
+    }
+
+    @Test
+    void setPlayerStateToOhneAce_shouldReturnPlayerStateDTO_when_PlayerStateIsNotOhneAce() {
+        String playerName = "John";
+        PlayerStateDTO expected = new PlayerStateDTO(PlayerState.OHNE_ACE.toString(), "playerState.update");
+        assertEquals(expected, gameService.setPlayerStateToOhneAce(playerName));
+        verify(playerRepository, times(1)).setPlayerStateByPlayerName(playerName);
+    }
+
+    @Test
+    void setContent_shouldSetNewContent_when_gameIdIsValid() {
+        Long gameId = 2L;
+        String content = "John discarded an ace after announcing Ohne Ace";
+        Game game = new Game();
+        game.setGameId(2L);
+        game.setInformation("John announced Ohne Ace");
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        gameService.setContent(gameId, content);
+
+        ArgumentCaptor<Game> gameArgumentCaptor = ArgumentCaptor.forClass(Game.class);
+        verify(gameRepository, times(1)).save(gameArgumentCaptor.capture());
+        assertEquals("John discarded an ace after announcing Ohne Ace", gameArgumentCaptor.getValue().getInformation());
+    }
+
+    @Test
+    void throwAce_shouldReturnPlayerHandDTO_when_playerNameIsValid() {
+        String playerName = "John";
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName(playerName);
+        player.setCardNumber(3);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        PlayerHand card1 = new PlayerHand();
+        card1.setCardValue(9);
+        card1.setFrontImagePath("card1.png");
+        PlayerHand card2 = new PlayerHand();
+        card2.setCardValue(2);
+        card2.setFrontImagePath("card2.png");
+        when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
+        PlayerHandDTO expected = new PlayerHandDTO(
+                PlayerState.WAITING_CARD,
+                List.of(
+                        new CardDTO(card1.getCardValue(), card1.getFrontImagePath()),
+                        new CardDTO(card2.getCardValue(), card2.getFrontImagePath())), 11, "game.throwAce");
+        assertEquals(expected, gameService.throwAce(playerName));
+
+        ArgumentCaptor<Player> playerArgumentCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerArgumentCaptor.capture());
+        verify(playerHandRepository, times(1)).deleteAceFromHand(player.getId());
+        assertEquals(2, playerArgumentCaptor.getValue().getCardNumber());
+    }
+
+    @Test
+    void throwCards_shouldModifyGame_when_playerNameAndGameIdAreValid() {
+        Long gameId = 2L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setPlayerName(playerName);
+        player.setPlayerState(PlayerState.COULD_STOP);
+        player.setCardNumber(5);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setInformation("any content");
+        when(gameRepository.findById(gameId)).thenReturn(Optional.of(game));
+
+        gameService.throwCards(playerName, gameId);
+
+        ArgumentCaptor<Game> gameArgumentCaptor = ArgumentCaptor.forClass(Game.class);
+        verify(gameRepository, times(1)).save(gameArgumentCaptor.capture());
+        assertEquals("JOHN discarded 5 cards!", gameArgumentCaptor.getValue().getInformation());
+        ArgumentCaptor<Player> playerArgumentCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerArgumentCaptor.capture());
+        assertEquals(PlayerState.WAITING_CARD, playerArgumentCaptor.getValue().getPlayerState());
+        assertEquals(0, playerArgumentCaptor.getValue().getCardNumber());
+        verify(playerHandRepository, times(1)).deleteAllByPlayerId(player.getId());
+
+
+
     }
 
 }

@@ -1,24 +1,17 @@
 function MessagesPlace({ gameState, onDisplayInformation, normalInfo, finalInfo }) {
 
   function displayMessage() {
+    
     if (finalInfo) {
       return (
-        <p
-          className="text-center text-sm font-semibold animate-jump-in pb-2 2xl:text-base 2xl:font-bold"
-          key={finalInfo}
-        >
-          {onDisplayInformation(finalInfo)}
-        </p>
-      )
+        <p className="text-center text-sm font-semibold animate-jump-in pb-2 2xl:text-base 2xl:font-bold" 
+           key={finalInfo}>
+          {onDisplayInformation(finalInfo)}</p>)
     } else {
       return (
-        <p
-          className="text-center text-base font-semibold animate-jump-in 2xl:text-lg 2xl:font-bold"
-          key={normalInfo}
-        >
-          {onDisplayInformation(normalInfo)}
-        </p>
-      )
+        <p className="text-center text-base font-semibold animate-jump-in 2xl:text-lg 2xl:font-bold"
+           key={normalInfo}>
+          {onDisplayInformation(normalInfo)}</p>)
     }
   }
   
