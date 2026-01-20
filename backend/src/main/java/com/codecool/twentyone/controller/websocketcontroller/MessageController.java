@@ -276,8 +276,8 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
     public void throwAce(@Payload NewCardRequestDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
-            GameMessage message = gameService.setContent(request.gameId(), playerName.toUpperCase() +
-                    " discarded an Ace after announcing 'Ohne Ace'");
+            GameMessage message = gameService.setContent(request.gameId(), playerName.toUpperCase()
+                    + " discarded an Ace after announcing 'Ohne Ace'");
             message.setType("game.throwAce");
             PlayerHandDTO hand = gameService.throwAce(playerName);
             messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
