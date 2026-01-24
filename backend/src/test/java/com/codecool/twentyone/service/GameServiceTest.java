@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.ArrayList;
@@ -19,8 +20,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -46,6 +46,9 @@ public class GameServiceTest {
 
     @Mock
     private MessageService messageService;
+
+    @Mock
+    private GameMessage message;
 
     @InjectMocks
     private GameService gameService;
@@ -596,6 +599,120 @@ public class GameServiceTest {
         verify(playerRepository, times(1)).save(playerArgumentCaptor.capture());
         verify(playerHandRepository, times(1)).deleteAceFromHand(player.getId());
         assertEquals(2, playerArgumentCaptor.getValue().getCardNumber());
+    }
+
+    @Test
+    void leaveGame_shouldReturnNull_when_lastPlayerLeaveGame() {
+        Long gameId = 2L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName(playerName);
+        player.setCardNumber(3);
+        player.setPlayerState(PlayerState.MUCH);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setPlayer2(playerName);
+        game.setDealerId(8L);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        gameService.leaveGame(gameId, playerName);
+
+        ArgumentCaptor<Player> playerCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerCaptor.capture());
+        Player capturedPlayer = playerCaptor.getValue();
+        assertEquals(0, capturedPlayer.getCardNumber());
+        assertEquals(PlayerState.WAITING_CARD, capturedPlayer.getPlayerState());
+        verify(shuffleRepository, times(1)).deleteByGameId(gameId);
+        verify(dealerHandRepository, times(1)).deleteAllByDealerId(game.getDealerId());
+        verify(dealerRepository, times(1)).deleteById(game.getDealerId());
+        verify(gameRepository, times(1)).deleteById(gameId);
+    }
+
+    @Test
+    void leaveGame_shouldModifyGame_when_onePlayerRemainsAndPlayerNameDoesNotEqualTurnName() {
+        Long gameId = 2L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName(playerName);
+        player.setCardNumber(3);
+        player.setPlayerState(PlayerState.COULD_STOP);
+        player.setPot(2);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setPlayer1(playerName);
+        game.setPlayer3("Jane");
+        game.setDealerId(8L);
+        game.setTurnName("Jane");
+        game.setDealerBalance(45);
+        game.setPlayer1Balance(55);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        gameService.leaveGame(gameId, playerName);
+
+        ArgumentCaptor<Player> playerCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerCaptor.capture());
+        Player capturedPlayer = playerCaptor.getValue();
+        assertEquals(0, capturedPlayer.getCardNumber());
+        assertEquals(PlayerState.WAITING_CARD, capturedPlayer.getPlayerState());
+        assertEquals(0, capturedPlayer.getPot());
+
+        ArgumentCaptor<Game> gameCaptor = ArgumentCaptor.forClass(Game.class);
+        verify(gameRepository, times(1)).save(gameCaptor.capture());
+        Game capturedGame = gameCaptor.getValue();
+        assertNull(capturedGame.getPlayer1());
+        assertEquals("JOHN left the game!", capturedGame.getInformation());
+        assertEquals(47, capturedGame.getDealerBalance());
+        assertEquals(0, capturedGame.getPlayer1Balance());
+        verify(playerHandRepository, times(1)).deleteAllByPlayerId(player.getId());
+        verify(dealerRepository, times(1)).setDealerBalanceById(2, game.getDealerId());
+    }
+
+    @Test
+    void leaveGame_shouldModifyGame_when_OnePlayerRemainsAndPlayerNameEqualsTurnName() {
+        Long gameId = 2L;
+        String playerName = "John";
+        Player player = new Player();
+        player.setId(5L);
+        player.setPlayerName(playerName);
+        player.setCardNumber(3);
+        player.setPlayerState(PlayerState.FIRE);
+        when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
+        Game game = new Game();
+        game.setGameId(gameId);
+        game.setPlayer3(playerName);
+        game.setPlayer3Balance(55);
+        game.setPlayer4("Jane");
+        game.setDealerId(8L);
+        game.setTurnName(playerName);
+        game.setPublicHand3Exists(true);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+        when(playerRepository.getPlayerStateByPlayerName("Jane")).thenReturn(PlayerState.WAITING_CARD);
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        gameService.leaveGame(gameId, playerName);
+
+        verify(playerHandRepository, times(1)).deleteAllByPlayerId(player.getId());
+        ArgumentCaptor<Player> playerCaptor = ArgumentCaptor.forClass(Player.class);
+        verify(playerRepository, times(1)).save(playerCaptor.capture());
+        Player capturedPlayer = playerCaptor.getValue();
+        assertEquals(0, capturedPlayer.getCardNumber());
+        assertEquals(PlayerState.WAITING_CARD, capturedPlayer.getPlayerState());
+
+        ArgumentCaptor<Game> gameCaptor = ArgumentCaptor.forClass(Game.class);
+        verify(gameRepository, times(2)).save(gameCaptor.capture());
+        Game capturedGame = gameCaptor.getValue();
+        assertNull(capturedGame.getPlayer3());
+        assertEquals(0, capturedGame.getPlayer3Balance());
+        assertEquals("JOHN left the game!", capturedGame.getInformation());
+        assertFalse(capturedGame.isPublicHand3Exists());
+        assertEquals("Jane", capturedGame.getTurnName());
     }
 
     @Test
