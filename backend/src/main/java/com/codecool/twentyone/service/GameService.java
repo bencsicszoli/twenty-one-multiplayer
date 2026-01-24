@@ -53,7 +53,7 @@ public class GameService {
         return new PlayerHandDTO(PlayerState.WAITING_CARD, List.of(dto), handValue, "hand.firstUpdate");
     }
 
-    @Transactional
+    //@Transactional
     public void giveDealerFirstCard(Long gameId, Long dealerId) {
         Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Card card = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
@@ -197,7 +197,7 @@ public class GameService {
         return new PlayerStateDTO(state.toString(), "playerState.update");
     }
 
-    public GameMessage passTurn(Game currentGame, String turnPlayerName) {
+    private GameMessage passTurn(Game currentGame, String turnPlayerName) {
         setNextTurnName(currentGame, turnPlayerName);
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
@@ -437,6 +437,12 @@ public class GameService {
         }
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        betProcessOfTurnPlayer(turnName, bet, currentGame, dealer);
+        gameRepository.save(currentGame);
+        return messageService.gameToMessage(currentGame);
+    }
+
+    private void betProcessOfTurnPlayer(String turnName, Integer bet, Game currentGame, Dealer dealer) {
         if (turnName.equals(currentGame.getPlayer1())) {
             placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer1());
             currentGame.setPlayer1Balance(currentGame.getPlayer1Balance() - bet);
@@ -450,8 +456,6 @@ public class GameService {
             placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer4());
             currentGame.setPlayer4Balance(currentGame.getPlayer4Balance() - bet);
         }
-        gameRepository.save(currentGame);
-        return messageService.gameToMessage(currentGame);
     }
 
     private void placeBetProcess(Game currentGame, int bet, Dealer dealer, String turnName) {
@@ -504,10 +508,8 @@ public class GameService {
 
     @Transactional
     public GameMessage leaveGame(Long gameId, String playerName) {
-        System.out.println("LeaveGame called");
 
         //Személyes játékadatok törlése
-        GameMessage message;
         Player leavingPlayer = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
         playerHandRepository.deleteAllByPlayerId(leavingPlayer.getId());
         leavingPlayer.setCardNumber(0);
@@ -521,19 +523,8 @@ public class GameService {
         playerRepository.save(leavingPlayer);
 
         //Eldöntjük, hogy egy vagy több játékos van-e játékban
-        int playersNumber = 0;
-        if (currentGame.getPlayer1() != null) {
-            playersNumber++;
-        }
-        if (currentGame.getPlayer2() != null) {
-            playersNumber++;
-        }
-        if (currentGame.getPlayer3() != null) {
-            playersNumber++;
-        }
-        if (currentGame.getPlayer4() != null) {
-            playersNumber++;
-        }
+
+        int playersNumber = countActivePlayers(currentGame);
 
         //Eljárás egy játékos esetén
         if (playersNumber == 1) {
@@ -547,76 +538,53 @@ public class GameService {
         //Eljárás több játékos esetén
 
         if (playerName.equals(currentGame.getPlayer1())) {
-            currentGame.setPlayer1Balance(0);
-            currentGame.setInformation(leavingPlayer.getPlayerName().toUpperCase() + " left the game!");
-            currentGame.setPublicHand1Exists(false);
-            if (playerName.equals(currentGame.getTurnName())) {
-                message = passTurn(currentGame, playerName);
-                message.setPlayer1(null);
-                currentGame.setPlayer1(null);
-                gameRepository.save(currentGame);
-                message.setLeavingPlayer("player1");
-                return message;
-            }
-            currentGame.setPlayer1(null);
-            gameRepository.save(currentGame);
-            GameMessage leavingMessage = messageService.gameToMessage(currentGame);
-            leavingMessage.setLeavingPlayer("player1");
-            return leavingMessage;
+            return handlePlayerLeaving(currentGame, currentGame.getPlayer1(), PlayerSlot.PLAYER1);
         } else if (playerName.equals(currentGame.getPlayer2())) {
-            currentGame.setPlayer2Balance(0);
-            currentGame.setInformation(leavingPlayer.getPlayerName().toUpperCase() + " left the game!");
-            currentGame.setPublicHand2Exists(false);
-            if (playerName.equals(currentGame.getTurnName())) {
-                message = passTurn(currentGame, playerName);
-                message.setPlayer2(null);
-                currentGame.setPlayer2(null);
-                gameRepository.save(currentGame);
-                message.setLeavingPlayer("player2");
-                return message;
-            }
-            currentGame.setPlayer2(null);
-            gameRepository.save(currentGame);
-            GameMessage leavingMessage = messageService.gameToMessage(currentGame);
-            leavingMessage.setLeavingPlayer("player2");
-            return leavingMessage;
+            return handlePlayerLeaving(currentGame, currentGame.getPlayer2(), PlayerSlot.PLAYER2);
         } else if (playerName.equals(currentGame.getPlayer3())) {
-            currentGame.setPlayer3Balance(0);
-            currentGame.setInformation(leavingPlayer.getPlayerName().toUpperCase() + " left the game!");
-            currentGame.setPublicHand3Exists(false);
-            if (playerName.equals(currentGame.getTurnName())) {
-                message = passTurn(currentGame, playerName);
-                message.setPlayer3(null);
-                currentGame.setPlayer3(null);
-                gameRepository.save(currentGame);
-                message.setLeavingPlayer("player3");
-                return message;
-            }
-            currentGame.setPlayer3(null);
-            gameRepository.save(currentGame);
-            GameMessage leavingMessage = messageService.gameToMessage(currentGame);
-            leavingMessage.setLeavingPlayer("player3");
-            return leavingMessage;
+            return handlePlayerLeaving(currentGame, currentGame.getPlayer3(), PlayerSlot.PLAYER3);
         } else if (playerName.equals(currentGame.getPlayer4())) {
-            currentGame.setPlayer4Balance(0);
-            currentGame.setInformation(leavingPlayer.getPlayerName().toUpperCase() + " left the game!");
-            currentGame.setPublicHand4Exists(false);
-            if (playerName.equals(currentGame.getTurnName())) {
-                message = passTurn(currentGame, playerName);
-                message.setPlayer4(null);
-                currentGame.setPlayer4(null);
-                gameRepository.save(currentGame);
-                message.setLeavingPlayer("player4");
-                return message;
-            }
-            currentGame.setPlayer4(null);
-            gameRepository.save(currentGame);
-            GameMessage leavingMessage = messageService.gameToMessage(currentGame);
-            leavingMessage.setLeavingPlayer("player4");
-            return leavingMessage;
+            return handlePlayerLeaving(currentGame, currentGame.getPlayer4(), PlayerSlot.PLAYER4);
         }
         return messageService.gameToMessage(currentGame);
     }
+
+    private GameMessage handlePlayerLeaving(Game currentGame, String playerName, PlayerSlot slot) {
+        slot.setBalance.accept(currentGame, 0);
+        currentGame.setInformation(playerName.toUpperCase() + " left the game!");
+        slot.setPublicHandExists.accept(currentGame, false);
+
+        if (playerName.equals(currentGame.getTurnName())) {
+            GameMessage message = passTurn(currentGame, playerName);
+            slot.setPlayer.accept(currentGame, null);
+            gameRepository.save(currentGame);
+            message.setLeavingPlayer(slot.playerName);
+            return message;
+        }
+        slot.setPlayer.accept(currentGame, null);
+        gameRepository.save(currentGame);
+        GameMessage leavingMessage = messageService.gameToMessage(currentGame);
+        leavingMessage.setLeavingPlayer(slot.playerName);
+        return leavingMessage;
+    }
+
+    private int countActivePlayers(Game currentGame) {
+        int playersNumber = 0;
+        if (currentGame.getPlayer1() != null) {
+            playersNumber++;
+        }
+        if (currentGame.getPlayer2() != null) {
+            playersNumber++;
+        }
+        if (currentGame.getPlayer3() != null) {
+            playersNumber++;
+        }
+        if (currentGame.getPlayer4() != null) {
+            playersNumber++;
+        }
+        return playersNumber;
+    }
+
 
     @Transactional
     public GameMessage throwCards(String playerName, Long gameId) {

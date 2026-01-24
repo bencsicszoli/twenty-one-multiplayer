@@ -16,6 +16,8 @@ services:
       - "${SPRING_DATASOURCE_PORT}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
 
   app:
     build:
