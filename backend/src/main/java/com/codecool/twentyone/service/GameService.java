@@ -39,14 +39,14 @@ public class GameService {
         Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Card firstCard = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
-        PlayerHand hand = new PlayerHand();
-        hand.setCardValue(firstCard.getValue());
-        hand.setFrontImagePath(firstCard.getFrontImagePath());
-        hand.setPlayer(player);
-        playerHandRepository.save(hand);
+        PlayerCard playerCard = new PlayerCard();
+        playerCard.setCardValue(firstCard.getValue());
+        playerCard.setFrontImagePath(firstCard.getFrontImagePath());
+        playerCard.setPlayer(player);
+        playerHandRepository.save(playerCard);
         game.setCardOrder(game.getCardOrder() + 1);
         gameRepository.save(game);
-        int handValue = hand.getCardValue();
+        int handValue = playerCard.getCardValue();
         player.setCardNumber(1);
         playerRepository.save(player);
         CardDTO dto = new CardDTO(firstCard.getValue(), firstCard.getFrontImagePath());
@@ -58,11 +58,11 @@ public class GameService {
         Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Card card = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         Dealer dealer = dealerRepository.findById(dealerId).orElseThrow(() -> new RuntimeException("Dealer not found"));
-        DealerHand hand = new DealerHand();
-        hand.setCardValue(card.getValue());
-        hand.setFrontImagePath(card.getFrontImagePath());
-        hand.setDealer(dealer);
-        dealerHandRepository.save(hand);
+        DealerCard dealerCard = new DealerCard();
+        dealerCard.setCardValue(card.getValue());
+        dealerCard.setFrontImagePath(card.getFrontImagePath());
+        dealerCard.setDealer(dealer);
+        dealerHandRepository.save(dealerCard);
         game.setCardOrder(game.getCardOrder() + 1);
         gameRepository.save(game);
         dealer.setCardNumber(1);
@@ -95,7 +95,7 @@ public class GameService {
         //Card card = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         Card card = loadNextCard(currentGame.getGameId(), currentGame.getCardOrder());
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
-        PlayerHand handCard = new PlayerHand();
+        PlayerCard handCard = new PlayerCard();
         handCard.setCardValue(card.getValue());
         handCard.setFrontImagePath(card.getFrontImagePath());
         handCard.setPlayer(currentPlayer);
@@ -220,10 +220,10 @@ public class GameService {
 
     public PlayerHandDTO getHand(String playerName) {
         Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
-        List<PlayerHand> ownCards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        List<PlayerCard> ownCards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
         List<CardDTO> cardDTOList = new ArrayList<>();
         int handValue = 0;
-        for (PlayerHand card : ownCards) {
+        for (PlayerCard card : ownCards) {
             cardDTOList.add(new CardDTO(card.getCardValue(), card.getFrontImagePath()));
             handValue += card.getCardValue();
         }
@@ -329,7 +329,6 @@ public class GameService {
 
     private int dealerPullsCards(Game currentGame, int dealerHandValue, int minDealerHandValue, Dealer dealer, int dealerCardsNumber, List<GameMessage> messages, boolean announcedOhneAce) {
         while (dealerHandValue < minDealerHandValue) {
-            System.out.println("DealerHandValue in dealerPullsCards: " + dealerHandValue);
             dealerHandValue = automaticCardPulling(currentGame, dealerHandValue, dealer);
             dealerCardsNumber++;
             if (dealerCardsNumber == 5 && dealerHandValue < 17) {
@@ -357,11 +356,11 @@ public class GameService {
         Card newCard = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
         dealerHandValue = dealerHandValue + newCard.getValue();
-        DealerHand dealerHand = new DealerHand();
-        dealerHand.setCardValue(newCard.getValue());
-        dealerHand.setFrontImagePath(newCard.getFrontImagePath());
-        dealerHand.setDealer(dealer);
-        dealerHandRepository.save(dealerHand);
+        DealerCard dealerCard = new DealerCard();
+        dealerCard.setCardValue(newCard.getValue());
+        dealerCard.setFrontImagePath(newCard.getFrontImagePath());
+        dealerCard.setDealer(dealer);
+        dealerHandRepository.save(dealerCard);
         currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
         return dealerHandValue;
     }
@@ -460,10 +459,10 @@ public class GameService {
 
     public DealerHandDTO getDealerHand(Long gameId) {
         Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new NoSuchElementException("Game not found"));
-        List<DealerHand> dealerCards = dealerHandRepository.findAllByDealerId(currentGame.getDealerId()).orElseThrow(() -> new NoSuchElementException("Cards not found"));
+        List<DealerCard> dealerCards = dealerHandRepository.findAllByDealerId(currentGame.getDealerId()).orElseThrow(() -> new NoSuchElementException("Cards not found"));
         List<CardDTO> dealerCardDTOs = new ArrayList<>();
-        for (DealerHand dealerHand : dealerCards) {
-            CardDTO cardDTO = new CardDTO(dealerHand.getCardValue(), dealerHand.getFrontImagePath());
+        for (DealerCard dealerCard : dealerCards) {
+            CardDTO cardDTO = new CardDTO(dealerCard.getCardValue(), dealerCard.getFrontImagePath());
             dealerCardDTOs.add(cardDTO);
         }
         int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //dealerCards-ból nem gyorsabb?
@@ -536,9 +535,9 @@ public class GameService {
         playerHandRepository.deleteAceFromHand(player.getId());
         player.setCardNumber(player.getCardNumber() - 1);
         playerRepository.save(player);
-        List<PlayerHand> cards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        List<PlayerCard> cards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
         List<CardDTO> dtos = new ArrayList<>();
-        for (PlayerHand card : cards) {
+        for (PlayerCard card : cards) {
             CardDTO cardDTO = new CardDTO(card.getCardValue(), card.getFrontImagePath());
             dtos.add(cardDTO);
         }

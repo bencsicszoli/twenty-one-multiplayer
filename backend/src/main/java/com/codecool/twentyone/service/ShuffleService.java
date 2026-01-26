@@ -33,7 +33,6 @@ public class ShuffleService {
         List<Integer> shuffledCardIndexes = getShuffledCardIndexes();
         List<Shuffle> cardsToSave = new ArrayList<>();
         List<Card> allCards = cardRepository.findAll();
-        System.out.println("AllCards size: " + allCards.size());
         for (int i = 0; i < shuffledCardIndexes.size(); i++) {
             int orderInIndexes = shuffledCardIndexes.get(i);
             Card card = allCards.stream().filter(e -> e.getId() == orderInIndexes).findFirst()
