@@ -7,15 +7,17 @@ import lombok.Setter;
 @Entity
 @Getter
 @Setter
-public class DealerHand {
+@Table(name = "player_hand")
+public class PlayerCard {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private long id;
+
     private int cardValue;
     private String frontImagePath;
 
     @ManyToOne
-    @JoinColumn(name = "dealer_id")
-    private Dealer dealer;
+    @JoinColumn(name = "player_id")
+    private Player player;
 }

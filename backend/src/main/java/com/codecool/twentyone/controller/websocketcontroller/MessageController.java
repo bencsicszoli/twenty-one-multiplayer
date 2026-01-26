@@ -8,7 +8,6 @@ import com.codecool.twentyone.service.GameService;
 import com.codecool.twentyone.service.MessageService;
 import com.codecool.twentyone.service.ShuffleService;
 import org.springframework.context.event.EventListener;
-import org.springframework.messaging.Message;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
@@ -82,10 +81,8 @@ public void leaveGame(@Payload LeaveMessageDTO request, Principal principal, Sim
     if (!playerName.equals(request.playerName())) {
         throw new RuntimeException("Invalid player name");
     }
-
     // 👉 explicit logout jelölése
     headerAccessor.getSessionAttributes().put("explicitLogout", true);
-
     GameMessage message = gameService.leaveGame(request.gameId(), playerName);
     if (message != null) {
         message.setType("player.left");
@@ -97,27 +94,21 @@ public void leaveGame(@Payload LeaveMessageDTO request, Principal principal, Sim
 public void onSessionDisconnect(SessionDisconnectEvent event) {
     StompHeaderAccessor headerAccessor = StompHeaderAccessor.wrap(event.getMessage());
     Map<String, Object> sessionAttributes = headerAccessor.getSessionAttributes();
-
     if (sessionAttributes == null) {
         return;
     }
-
     // 👉 ha már explicit kilépett, nem csinálunk semmit
     if (Boolean.TRUE.equals(sessionAttributes.get("explicitLogout"))) {
         System.out.println("Session disconnected after explicit logout – skipping leaveGame");
         return;
     }
-
     Object gameIdObj = sessionAttributes.get("gameId");
     Object playerObj = sessionAttributes.get("player");
-
     if (gameIdObj == null || playerObj == null) {
         return;
     }
-
     Long gameId = Long.valueOf(gameIdObj.toString());
     String player = playerObj.toString();
-
     GameMessage message = gameService.leaveGame(gameId, player);
     if (message != null) {
         message.setType("player.left");
@@ -132,61 +123,32 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
         shuffleService.addShuffledDeck(request.gameId());
         //shuffleService.useFakeDeck(request.gameId());
-        Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
-        game.setRemainingCards(32);
-        game.setState(GameState.NEW);
-        game.setPublicHand1Exists(false);
-        game.setPublicHand2Exists(false);
-        game.setPublicHand3Exists(false);
-        game.setPublicHand4Exists(false);
-        game.setLastCard(false);
+        Game game = getInitialGame(request);
         dealerRepository.setCardNumberById(game.getDealerId());
         dealerHandRepository.deleteAllByDealerId(game.getDealerId());
         List<String> players = new ArrayList<>();
-        Player player1 = null;
-        Player player2 = null;
-        Player player3 = null;
-        Player player4;
+
         if (game.getPlayer1() != null) {
-            player1 = playerRepository.findByPlayerName(game.getPlayer1()).orElseThrow(()-> new RuntimeException("Player not found"));
-            playerHandRepository.deleteAllByPlayerId(player1.getId());
-            player1.setCardNumber(0);
-            player1.setPlayerState(PlayerState.WAITING_CARD);
-            game.setTurnName(player1.getPlayerName());
-            playerRepository.save(player1);
-            players.add(game.getPlayer1());
+            initializeActivePlayer(players, game.getPlayer1());
+            game.setTurnName(game.getPlayer1());
         }
         if (game.getPlayer2() != null) {
-            player2 = playerRepository.findByPlayerName(game.getPlayer2()).orElseThrow(()-> new RuntimeException("Player not found"));
-            playerHandRepository.deleteAllByPlayerId(player2.getId());
-            player2.setCardNumber(0);
-            player2.setPlayerState(PlayerState.WAITING_CARD);
-            if (player1 == null) {
-                game.setTurnName(player2.getPlayerName());
+            initializeActivePlayer(players, game.getPlayer2());
+            if (game.getPlayer1() == null) {
+                game.setTurnName(game.getPlayer2());
             }
-            playerRepository.save(player2);
-            players.add(game.getPlayer2());
         }
         if (game.getPlayer3() != null) {
-            player3 = playerRepository.findByPlayerName(game.getPlayer3()).orElseThrow(()-> new RuntimeException("Player not found"));
-            playerHandRepository.deleteAllByPlayerId(player3.getId());
-            player3.setCardNumber(0);
-            player3.setPlayerState(PlayerState.WAITING_CARD);
-            if (player1 == null && player2 == null) {
-                game.setTurnName(player3.getPlayerName());
+            initializeActivePlayer(players, game.getPlayer3());
+            if (game.getPlayer1() == null && game.getPlayer2() == null) {
+                game.setTurnName(game.getPlayer3());
             }
-            players.add(game.getPlayer3());
         }
         if (game.getPlayer4() != null) {
-            player4 = playerRepository.findByPlayerName(game.getPlayer4()).orElseThrow(()-> new RuntimeException("Player not found"));
-            playerHandRepository.deleteAllByPlayerId(player4.getId());
-            player4.setCardNumber(0);
-            player4.setPlayerState(PlayerState.WAITING_CARD);
-            if (player1 == null && player2 == null && player3 == null) {
-                game.setTurnName(player4.getPlayerName());
+            initializeActivePlayer(players, game.getPlayer4());
+            if (game.getPlayer1() == null && game.getPlayer2() == null && game.getPlayer3() == null) {
+                game.setTurnName(game.getPlayer4());
             }
-            players.add(game.getPlayer4());
-
         }
         game.setState(GameState.IN_PROGRESS);
 
@@ -207,73 +169,26 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
 
     @Transactional
     @MessageMapping("/game.pullCard")
-    public void pullCard(@Payload NewCardRequestDTO request, Principal principal) {
+    public void pullCard(@Payload GameIdAndTurnNameDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             GameMessage message = gameService.pullCard(request.gameId(), playerName);
             message.setType("game.pullCard");
             PlayerHandDTO hand = gameService.getHand(playerName);
             messagingTemplate.convertAndSendToUser(playerName, "/queue/private", hand);
-
             if (message.getTurnName().equals("Dealer")) {
-                Game currentGame = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
-                List<GameMessage> messages = gameService.handleDealerTurn(currentGame);
-                for (int i = 0; i < messages.size(); i++) {
-                    if (messages.size() == 1) {
-                        currentGame.setLastCard(true);
-                        gameRepository.save(currentGame);
-                        messages.getFirst().setLastCard(true);
-                        messages.getFirst().setType("game.pullCard");
-                        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                    } else if (i == 0) {
-                        messages.getFirst().setType("game.pullCard");
-                        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                    } else if (i == messages.size() - 1) {
-                        try {
-                            Thread.sleep(1000);
-                            messages.get(i).setType("game.pullCard");
-                            currentGame.setLastCard(true);
-                            gameRepository.save(currentGame);
-                            messages.getLast().setLastCard(true);
-                            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        if (
-                                "Dealer discarded 5 cards!".equals(messages.get(i - 1).getContent()) ||
-                                "Dealer announced 'Ohne Ace'".equals(messages.get(i - 1).getContent()) ||
-                                "Dealer discarded an Ace after announcing 'Ohne Ace'".equals(messages.get(i - 1).getContent())) {
-                            try {
-                                Thread.sleep(2500);
-                                messages.get(i).setType("game.pullCard");
-                                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        } else {
-                            try {
-                                Thread.sleep(1000);
-                                messages.get(i).setType("game.pullCard");
-                                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-
-                    }
-                }
+                dealerTurnProcess(request, "game.pullCard");
             } else {
                 messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
             }
 
         } else {
-            throw new RuntimeException("Invalid turn"); //NotAllowedOperationException
+            throw new RuntimeException("Invalid turn");
         }
     }
 
     @MessageMapping("/game.throwAce")
-    public void throwAce(@Payload NewCardRequestDTO request, Principal principal) {
+    public void throwAce(@Payload GameIdAndTurnNameDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             GameMessage message = gameService.setContent(request.gameId(), playerName.toUpperCase()
@@ -289,61 +204,16 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
 
     @Transactional
     @MessageMapping("/game.passTurn")
-    public void passTurn (@Payload PassTurnRequestDTO request, Principal principal) {
+    public void passTurn (@Payload GameIdAndTurnNameDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             GameMessage message = gameService.passTurnWhenStand(request.gameId(), request.turnName());
             PlayerStateDTO dto = new PlayerStateDTO(PlayerState.ENOUGH.toString(), "playerState.update");
             message.setType("game.passTurn");
-             // type: game.passTurn
             messagingTemplate.convertAndSendToUser(request.turnName(), "/queue/private", dto);
 
             if (message.getTurnName().equals("Dealer")) {
-                Game currentGame = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
-                List<GameMessage> messages = gameService.handleDealerTurn(currentGame);
-                for (int i = 0; i < messages.size(); i++) {
-                    if (messages.size() == 1) {
-                        currentGame.setLastCard(true);
-                        gameRepository.save(currentGame);
-                        messages.getFirst().setLastCard(true);
-                        messages.getFirst().setType("game.passTurn");
-                        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                    } else if (i == 0) {
-                        messages.getFirst().setType("game.passTurn");
-                        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                    } else if (i == messages.size() - 1) {
-                        try {
-                            Thread.sleep(1000);
-                            messages.get(i).setType("game.passTurn");
-                            currentGame.setLastCard(true);
-                            messages.getLast().setLastCard(true);
-                            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                        } catch (InterruptedException e) {
-                            e.printStackTrace();
-                        }
-                    } else {
-                        if (
-                                "Dealer discarded 5 cards!".equals(messages.get(i - 1).getContent()) ||
-                                "Dealer announced 'Ohne Ace'".equals(messages.get(i - 1).getContent()) ||
-                                "Dealer discarded an Ace after announcing 'Ohne Ace'".equals(messages.get(i - 1).getContent())) {
-                            try {
-                                Thread.sleep(2500);
-                                messages.get(i).setType("game.passTurn");
-                                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        } else {
-                            try {
-                                Thread.sleep(1000);
-                                messages.get(i).setType("game.passTurn");
-                                messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
-                            } catch (InterruptedException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
+                dealerTurnProcess(request, "game.passTurn");
             } else {
                 messagingTemplate.convertAndSend("/topic/game." + request.gameId(), message);
             }
@@ -367,7 +237,7 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
     }
 
     @MessageMapping("/game.throwCards")
-    public void throwCards(@Payload NewCardRequestDTO request, Principal principal) {
+    public void throwCards(@Payload GameIdAndTurnNameDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             GameMessage message = gameService.throwCards(playerName, request.gameId());
@@ -381,7 +251,7 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
     }
 
     @MessageMapping("/game.ohneAce")
-    public void setOhneAceState(@Payload NewCardRequestDTO request, Principal principal) {
+    public void setOhneAceState(@Payload GameIdAndTurnNameDTO request, Principal principal) {
         String playerName = principal.getName();
         if (playerName.equals(request.turnName())) {
             PlayerStateDTO dto = gameService.setPlayerStateToOhneAce(playerName);
@@ -392,5 +262,95 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
         } else {
             throw new RuntimeException("Invalid turn");
         }
+    }
+
+    private void dealerTurnProcess(GameIdAndTurnNameDTO request, String messageType) {
+        Game currentGame = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
+        List<GameMessage> messages = gameService.handleDealerTurn(currentGame);
+        for (int i = 0; i < messages.size(); i++) {
+            if (messages.size() == 1) {
+                createMessageWhenDealerHandIsOneCard(currentGame, messages, messageType, request, i);
+            } else if (i == 0) {
+                setMessageTypeToFirstMessage(messages, request, messageType, i);
+            } else if (i == messages.size() - 1) {
+                createLastMessage(messages, currentGame, request, messageType, i);
+            } else {
+                if (
+                        "Dealer discarded 5 cards!".equals(messages.get(i - 1).getContent()) ||
+                                "Dealer announced 'Ohne Ace'".equals(messages.get(i - 1).getContent()) ||
+                                "Dealer discarded an Ace after announcing 'Ohne Ace'".equals(messages.get(i - 1).getContent())) {
+                    set2500milliSecDelayWhenDealerInfo(messages, request, i);
+                } else {
+                    set1000milliSecDelay(messages, request, i);
+                }
+            }
+        }
+    }
+
+    private void createMessageWhenDealerHandIsOneCard(Game currentGame, List<GameMessage> messages, String messageType, GameIdAndTurnNameDTO request, int i) {
+        currentGame.setLastCard(true);
+        gameRepository.save(currentGame);
+        messages.getFirst().setLastCard(true);
+        messages.getFirst().setType(messageType);
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
+    }
+
+    private void setMessageTypeToFirstMessage(List<GameMessage> messages, GameIdAndTurnNameDTO request, String messageType, int i) {
+        messages.getFirst().setType(messageType);
+        messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
+    }
+
+    private void createLastMessage(List<GameMessage> messages, Game currentGame, GameIdAndTurnNameDTO request, String messageType, int i) {
+        try {
+            Thread.sleep(1000);
+            messages.get(i).setType(messageType);
+            currentGame.setLastCard(true);
+            gameRepository.save(currentGame);
+            messages.getLast().setLastCard(true);
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void set2500milliSecDelayWhenDealerInfo(List<GameMessage> messages, GameIdAndTurnNameDTO request, int i) {
+        try {
+            Thread.sleep(2500);
+            messages.get(i).setType("game.pullCard");
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void set1000milliSecDelay(List<GameMessage> messages, GameIdAndTurnNameDTO request, int i) {
+        try {
+            Thread.sleep(1000);
+            messages.get(i).setType("game.pullCard");
+            messagingTemplate.convertAndSend("/topic/game." + request.gameId(), messages.get(i));
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void initializeActivePlayer(List<String> playerNames, String playerName) {
+        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(()-> new RuntimeException("Player not found"));
+        playerHandRepository.deleteAllByPlayerId(player.getId());
+        player.setCardNumber(0);
+        player.setPlayerState(PlayerState.WAITING_CARD);
+        playerRepository.save(player);
+        playerNames.add(playerName);
+    }
+
+    private Game getInitialGame(GameIdRequest request) {
+        Game game = gameRepository.findById(request.gameId()).orElseThrow(()-> new RuntimeException("Game not found"));
+        game.setRemainingCards(32);
+        game.setState(GameState.NEW);
+        game.setPublicHand1Exists(false);
+        game.setPublicHand2Exists(false);
+        game.setPublicHand3Exists(false);
+        game.setPublicHand4Exists(false);
+        game.setLastCard(false);
+        return game;
     }
 }

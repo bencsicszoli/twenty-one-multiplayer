@@ -89,33 +89,6 @@ public class MessageService {
         PublicHandDTO player2PublicHand = new PublicHandDTO(List.of(), 0);
         PublicHandDTO player3PublicHand = new PublicHandDTO(List.of(), 0);
         PublicHandDTO player4PublicHand = new PublicHandDTO(List.of(), 0);
-        if (game.isPublicHand1Exists()) {
-            Player player = playerRepository.findByPlayerName(game.getPlayer1()).orElseThrow(() -> new RuntimeException("Player 1 not found"));
-            List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 1 hand not found"));
-            player1PublicHand = getPublicHandDTO(playerHand);
-        }
-        message.setPlayer1PublicHand(player1PublicHand);
-
-        if (game.isPublicHand2Exists()) {
-            Player player = playerRepository.findByPlayerName(game.getPlayer2()).orElseThrow(() -> new RuntimeException("Player 2 not found"));
-            List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 2 hand not found"));
-            player2PublicHand = getPublicHandDTO(playerHand);
-        }
-        message.setPlayer2PublicHand(player2PublicHand);
-
-        if (game.isPublicHand3Exists()) {
-            Player player = playerRepository.findByPlayerName(game.getPlayer3()).orElseThrow(() -> new RuntimeException("Player 3 not found"));
-            List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 3 hand not found"));
-            player3PublicHand = getPublicHandDTO(playerHand);
-        }
-        message.setPlayer3PublicHand(player3PublicHand);
-
-        if (game.isPublicHand4Exists()) {
-            Player player = playerRepository.findByPlayerName(game.getPlayer4()).orElseThrow(() -> new RuntimeException("Player 4 not found"));
-            List<PlayerHand> playerHand = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 4 hand not found"));
-            player4PublicHand = getPublicHandDTO(playerHand);
-        }
-        message.setPlayer4PublicHand(player4PublicHand);
 
         String player1Name = game.getPlayer1();
         String player2Name = game.getPlayer2();
@@ -129,27 +102,53 @@ public class MessageService {
         int player2Pot = 0;
         int player3Pot = 0;
         int player4Pot = 0;
+
         if (player1Name != null) {
-            Player player1 = playerRepository.findByPlayerName(player1Name).orElseThrow(()-> new RuntimeException("Player " + player1Name + " not found"));
-            player1CardNumber = player1.getCardNumber();
-            player1Pot = player1.getPot();
+            Player player = playerRepository.findByPlayerName(player1Name).orElseThrow(()-> new RuntimeException("Player " + player1Name + " not found"));
+            player1CardNumber = player.getCardNumber();
+            player1Pot = player.getPot();
+            if (game.isPublicHand1Exists()) {
+                List<PlayerCard> playerCard = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 1 hand not found"));
+                player1PublicHand = getPublicHandDTO(playerCard);
+            }
         }
+        message.setPlayer1PublicHand(player1PublicHand);
+
         if (player2Name != null) {
-            Player player2 = playerRepository.findByPlayerName(player2Name).orElseThrow(()-> new RuntimeException("Player " + player2Name + " not found"));
-            player2CardNumber = player2.getCardNumber();
-            player2Pot = player2.getPot();
+            Player player = playerRepository.findByPlayerName(player2Name).orElseThrow(()-> new RuntimeException("Player " + player2Name + " not found"));
+            player2CardNumber = player.getCardNumber();
+            player2Pot = player.getPot();
+            if (game.isPublicHand2Exists()) {
+                List<PlayerCard> playerCard = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 2 hand not found"));
+                player2PublicHand = getPublicHandDTO(playerCard);
+            }
         }
+        message.setPlayer2PublicHand(player2PublicHand);
+
         if (player3Name != null) {
-            Player player3 = playerRepository.findByPlayerName(player3Name).orElseThrow(()-> new RuntimeException("Player " + player3Name + " not found"));
-            player3CardNumber = player3.getCardNumber();
-            player3Pot = player3.getPot();
+            Player player = playerRepository.findByPlayerName(player3Name).orElseThrow(()-> new RuntimeException("Player " + player3Name + " not found"));
+            player3CardNumber = player.getCardNumber();
+            player3Pot = player.getPot();
+            if (game.isPublicHand3Exists()) {
+                List<PlayerCard> playerCard = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 3 hand not found"));
+                player3PublicHand = getPublicHandDTO(playerCard);
+            }
         }
+        message.setPlayer3PublicHand(player3PublicHand);
+
         if (player4Name != null) {
-            Player player4 = playerRepository.findByPlayerName(player4Name).orElseThrow(()-> new RuntimeException("Player " + player4Name + " not found"));
-            player4CardNumber = player4.getCardNumber();
-            player4Pot = player4.getPot();
+            Player player = playerRepository.findByPlayerName(player4Name).orElseThrow(()-> new RuntimeException("Player " + player4Name + " not found"));
+            player4CardNumber = player.getCardNumber();
+            player4Pot = player.getPot();
+            if (game.isPublicHand4Exists()) {
+                List<PlayerCard> playerCard = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Player 4 hand not found"));
+                player4PublicHand = getPublicHandDTO(playerCard);
+            }
         }
-        int dealerCardNumber = dealerRepository.findCardNumberById(game.getDealerId());
+        message.setPlayer4PublicHand(player4PublicHand);
+
+        Dealer dealer = dealerRepository.findById(game.getDealerId()).orElseThrow(()-> new RuntimeException("Dealer not found"));
+        int dealerCardNumber = dealer.getCardNumber();
 
         message.setPlayer1CardNumber(player1CardNumber);
         message.setPlayer2CardNumber(player2CardNumber);
@@ -160,22 +159,21 @@ public class MessageService {
         message.setPlayer2Pot(player2Pot);
         message.setPlayer3Pot(player3Pot);
         message.setPlayer4Pot(player4Pot);
-        Dealer dealer = dealerRepository.findById(game.getDealerId()).orElseThrow(()-> new RuntimeException("Dealer not found"));
         message.setDealerBalance(dealer.getBalance());
 
         return message;
     }
 
-    private PublicHandDTO getPublicHandDTO(List<PlayerHand> playerHand) {
-        PublicHandDTO player3PublicHand;
+    private PublicHandDTO getPublicHandDTO(List<PlayerCard> playerCard) {
+        PublicHandDTO playerPublicHand;
         List<CardDTO> dtoList = new ArrayList<>();
         int handValue = 0;
-        for (PlayerHand card : playerHand) {
+        for (PlayerCard card : playerCard) {
             CardDTO dto = new CardDTO(card.getCardValue(), card.getFrontImagePath());
             dtoList.add(dto);
             handValue += card.getCardValue();
         }
-        player3PublicHand = new PublicHandDTO(dtoList, handValue);
-        return player3PublicHand;
+        playerPublicHand = new PublicHandDTO(dtoList, handValue);
+        return playerPublicHand;
     }
 }

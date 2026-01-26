@@ -1,6 +1,6 @@
 package com.codecool.twentyone.repository;
 
-import com.codecool.twentyone.model.entities.PlayerHand;
+import com.codecool.twentyone.model.entities.PlayerCard;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.NativeQuery;
@@ -11,8 +11,8 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PlayerHandRepository extends JpaRepository<PlayerHand, Long> {
-    Optional<List<PlayerHand>> findAllByPlayerId(Long playerId);
+public interface PlayerHandRepository extends JpaRepository<PlayerCard, Long> {
+    Optional<List<PlayerCard>> findAllByPlayerId(Long playerId);
 
     @NativeQuery(value = "SELECT SUM(card_value) FROM player_hand WHERE player_id = ?1")
     int getHandValue(@Param("player_id") Long playerId);

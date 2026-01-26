@@ -64,7 +64,7 @@ public class GameServiceTest {
         when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
         PlayerHandDTO expected = new PlayerHandDTO(PlayerState.WAITING_CARD, List.of(new CardDTO(11, "24heart-ace.png")), 11, "hand.firstUpdate");
         assertEquals(expected, gameService.getFirstCard(gameId, playerName));
-        verify(playerHandRepository, times(1)).save(any(PlayerHand.class));
+        verify(playerHandRepository, times(1)).save(any(PlayerCard.class));
         verify(gameRepository, times(1)).save(currentGame);
         verify(playerRepository, times(1)).save(player);
     }
@@ -91,11 +91,11 @@ public class GameServiceTest {
 
         gameService.giveDealerFirstCard(gameId, dealerId);
 
-        ArgumentCaptor<DealerHand> dealerHandArgumentCaptor = ArgumentCaptor.forClass(DealerHand.class);
+        ArgumentCaptor<DealerCard> dealerHandArgumentCaptor = ArgumentCaptor.forClass(DealerCard.class);
         verify(dealerHandRepository, times(1)).save(dealerHandArgumentCaptor.capture());
-        DealerHand dealerHand = dealerHandArgumentCaptor.getValue();
-        assertEquals(11, dealerHand.getCardValue());
-        assertEquals("24heart-ace.png", dealerHand.getFrontImagePath());
+        DealerCard dealerCard = dealerHandArgumentCaptor.getValue();
+        assertEquals(11, dealerCard.getCardValue());
+        assertEquals("24heart-ace.png", dealerCard.getFrontImagePath());
 
         ArgumentCaptor<Game> gameArgumentCaptor = ArgumentCaptor.forClass(Game.class);
         verify(gameRepository, times(1)).save(gameArgumentCaptor.capture());
@@ -121,14 +121,14 @@ public class GameServiceTest {
         currentGame.setGameId(gameId);
         currentGame.setDealerId(dealer.getId());
         when(gameRepository.findById(gameId)).thenReturn(Optional.of(currentGame));
-        List<DealerHand> dealerCards = new ArrayList<>();
-        DealerHand card1 = new DealerHand();
+        List<DealerCard> dealerCards = new ArrayList<>();
+        DealerCard card1 = new DealerCard();
         card1.setId(100L);
         card1.setCardValue(11);
         card1.setFrontImagePath("card1.png");
         card1.setDealer(dealer);
         dealerCards.add(card1);
-        DealerHand card2 = new DealerHand();
+        DealerCard card2 = new DealerCard();
         card2.setId(101L);
         card2.setCardValue(11);
         card2.setFrontImagePath("card2.png");
@@ -314,7 +314,7 @@ public class GameServiceTest {
         assertEquals(28, game.getRemainingCards());
         assertEquals(5, game.getCardOrder());
 
-        verify(playerHandRepository, times(1)).save(any(PlayerHand.class));
+        verify(playerHandRepository, times(1)).save(any(PlayerCard.class));
         verify(gameRepository, times(1)).save(any(Game.class));
         verify(dealerRepository, times(1)).save(any(Dealer.class));
         verify(playerRepository, times(1)).save(any(Player.class));
@@ -355,7 +355,7 @@ public class GameServiceTest {
         assertEquals(5, game.getCardOrder());
         assertEquals("Jane", game.getTurnName());
 
-        verify(playerHandRepository, times(1)).save(any(PlayerHand.class));
+        verify(playerHandRepository, times(1)).save(any(PlayerCard.class));
         verify(gameRepository, times(1)).save(any(Game.class));
         verify(dealerRepository, times(1)).save(any(Dealer.class));
         verify(playerRepository, times(1)).save(any(Player.class));
@@ -395,7 +395,7 @@ public class GameServiceTest {
         assertEquals(4, game.getCardOrder());
         assertEquals("Dealer", game.getTurnName());
 
-        verify(playerHandRepository, times(1)).save(any(PlayerHand.class));
+        verify(playerHandRepository, times(1)).save(any(PlayerCard.class));
         verify(gameRepository, times(1)).save(any(Game.class));
         verify(dealerRepository, times(1)).save(any(Dealer.class));
         verify(playerRepository, times(1)).save(any(Player.class));
@@ -436,7 +436,7 @@ public class GameServiceTest {
         assertEquals(5, game.getCardOrder());
         assertEquals("Jane", game.getTurnName());
 
-        verify(playerHandRepository, times(1)).save(any(PlayerHand.class));
+        verify(playerHandRepository, times(1)).save(any(PlayerCard.class));
         verify(gameRepository, times(1)).save(any(Game.class));
         verify(dealerRepository, times(1)).save(any(Dealer.class));
         verify(playerRepository, times(1)).save(any(Player.class));
@@ -508,10 +508,10 @@ public class GameServiceTest {
         player.setPlayerName("John");
         player.setPlayerState(PlayerState.OHNE_ACE);
         when(playerRepository.findByPlayerName(player.getPlayerName())).thenReturn(Optional.of(player));
-        PlayerHand card1 = new PlayerHand();
+        PlayerCard card1 = new PlayerCard();
         card1.setCardValue(9);
         card1.setFrontImagePath("card1.png");
-        PlayerHand card2 = new PlayerHand();
+        PlayerCard card2 = new PlayerCard();
         card2.setCardValue(2);
         card2.setFrontImagePath("card2.png");
         when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
@@ -526,10 +526,10 @@ public class GameServiceTest {
         player.setPlayerName("John");
         player.setPlayerState(PlayerState.COULD_STOP);
         when(playerRepository.findByPlayerName(player.getPlayerName())).thenReturn(Optional.of(player));
-        PlayerHand card1 = new PlayerHand();
+        PlayerCard card1 = new PlayerCard();
         card1.setCardValue(9);
         card1.setFrontImagePath("card1.png");
-        PlayerHand card2 = new PlayerHand();
+        PlayerCard card2 = new PlayerCard();
         card2.setCardValue(4);
         card2.setFrontImagePath("card2.png");
         when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
@@ -563,10 +563,10 @@ public class GameServiceTest {
         GameMessage gameMessage = new GameMessage();
         when(messageService.gameToMessage(game)).thenReturn(gameMessage);
         when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
-        DealerHand dealerHand = new DealerHand();
-        dealerHand.setCardValue(3);
-        dealerHand.setFrontImagePath("card.png");
-        List<DealerHand> cards = List.of(dealerHand);
+        DealerCard dealerCard = new DealerCard();
+        dealerCard.setCardValue(3);
+        dealerCard.setFrontImagePath("card.png");
+        List<DealerCard> cards = List.of(dealerCard);
         when(dealerHandRepository.findAllByDealerId(game.getDealerId())).thenReturn(Optional.of(cards));
         int dealerHandValue = 3;
         when(dealerHandRepository.getHandValue(game.getDealerId())).thenReturn(dealerHandValue);
@@ -624,7 +624,7 @@ public class GameServiceTest {
         dealer.setBalance(game.getDealerBalance());
         when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
 
-        DealerHand dealerCard1 = new DealerHand();
+        DealerCard dealerCard1 = new DealerCard();
         dealerCard1.setCardValue(11);
         dealerCard1.setFrontImagePath("card1.png");
         dealerCard1.setDealer(dealer);
@@ -637,7 +637,7 @@ public class GameServiceTest {
         newCard.setFrontImagePath("card2.png");
         when(shuffleRepository.findCardByGameIdAndCardOrder(game.getGameId(), game.getCardOrder())).thenReturn(Optional.of(newCard));
 
-        DealerHand dealerCard2 = new DealerHand();
+        DealerCard dealerCard2 = new DealerCard();
         dealerCard2.setDealer(dealer);
         dealerCard2.setFrontImagePath(newCard.getFrontImagePath());
         dealerCard2.setCardValue(newCard.getValue());
@@ -725,7 +725,7 @@ public class GameServiceTest {
         when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
 
         //getDealerHand először, az első lapot adja vissza
-        DealerHand dealerCard1 = new DealerHand();
+        DealerCard dealerCard1 = new DealerCard();
         dealerCard1.setCardValue(2);
         dealerCard1.setFrontImagePath("card1.png");
         dealerCard1.setDealer(dealer);
@@ -743,7 +743,7 @@ public class GameServiceTest {
         card2.setFrontImagePath("card2.png");
         //addNormalDealerMessage
         //getDealerHand másodszor, a második kártyát adja vissza
-        DealerHand dealerCard2 = new DealerHand();
+        DealerCard dealerCard2 = new DealerCard();
         dealerCard2.setCardValue(3);
         dealerCard2.setFrontImagePath("card2.png");
         dealerCard2.setDealer(dealer);
@@ -755,7 +755,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand harmadszor, a harmadik kártyát adja vissza
-        DealerHand dealerCard3 = new DealerHand();
+        DealerCard dealerCard3 = new DealerCard();
         dealerCard3.setCardValue(4);
         dealerCard3.setFrontImagePath("card3.png");
         dealerCard3.setDealer(dealer);
@@ -767,7 +767,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand negyedszer, a negyedik kártyát adja vissza
-        DealerHand dealerCard4 = new DealerHand();
+        DealerCard dealerCard4 = new DealerCard();
         dealerCard4.setCardValue(3);
         dealerCard4.setFrontImagePath("card4.png");
         dealerCard4.setDealer(dealer);
@@ -779,7 +779,7 @@ public class GameServiceTest {
 
         //dealerDiscardsFiveCards
         //getDealerHand ötödször, az ötödik kártyát adja vissza
-        DealerHand dealerCard5 = new DealerHand();
+        DealerCard dealerCard5 = new DealerCard();
         dealerCard5.setCardValue(4);
         dealerCard5.setFrontImagePath("card5.png");
         dealerCard5.setDealer(dealer);
@@ -791,7 +791,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand hatodszor, a hatodik kártyát adja vissza
-        DealerHand dealerCard6 = new DealerHand();
+        DealerCard dealerCard6 = new DealerCard();
         dealerCard6.setCardValue(11);
         dealerCard6.setFrontImagePath("card6.png");
         dealerCard6.setDealer(dealer);
@@ -803,7 +803,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand hetedszer, a hetedik kártyát adja vissza
-        DealerHand dealerCard7 = new DealerHand();
+        DealerCard dealerCard7 = new DealerCard();
         dealerCard7.setCardValue(7);
         dealerCard7.setFrontImagePath("card7.png");
         dealerCard7.setDealer(dealer);
@@ -909,7 +909,7 @@ public class GameServiceTest {
         when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
 
         //getDealerHand először, az első lapot adja vissza
-        DealerHand dealerCard1 = new DealerHand();
+        DealerCard dealerCard1 = new DealerCard();
         dealerCard1.setCardValue(2);
         dealerCard1.setFrontImagePath("card1.png");
         dealerCard1.setDealer(dealer);
@@ -927,7 +927,7 @@ public class GameServiceTest {
         card2.setFrontImagePath("card2.png");
         //addNormalDealerMessage
         //getDealerHand másodszor, a második kártyát adja vissza
-        DealerHand dealerCard2 = new DealerHand();
+        DealerCard dealerCard2 = new DealerCard();
         dealerCard2.setCardValue(9);
         dealerCard2.setFrontImagePath("card2.png");
         dealerCard2.setDealer(dealer);
@@ -939,7 +939,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand harmadszor, a harmadik kártyát adja vissza
-        DealerHand dealerCard3 = new DealerHand();
+        DealerCard dealerCard3 = new DealerCard();
         dealerCard3.setCardValue(7);
         dealerCard3.setFrontImagePath("card3.png");
         dealerCard3.setDealer(dealer);
@@ -1047,7 +1047,7 @@ public class GameServiceTest {
         when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
 
         //getDealerHand először, az első lapot adja vissza
-        DealerHand dealerCard1 = new DealerHand();
+        DealerCard dealerCard1 = new DealerCard();
         dealerCard1.setCardValue(2);
         dealerCard1.setFrontImagePath("card1.png");
         dealerCard1.setDealer(dealer);
@@ -1065,7 +1065,7 @@ public class GameServiceTest {
         card2.setFrontImagePath("card2.png");
         //addNormalDealerMessage
         //getDealerHand másodszor, a második kártyát adja vissza
-        DealerHand dealerCard2 = new DealerHand();
+        DealerCard dealerCard2 = new DealerCard();
         dealerCard2.setCardValue(9);
         dealerCard2.setFrontImagePath("card2.png");
         dealerCard2.setDealer(dealer);
@@ -1077,7 +1077,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand harmadszor, a harmadik kártyát adja vissza
-        DealerHand dealerCard3 = new DealerHand();
+        DealerCard dealerCard3 = new DealerCard();
         dealerCard3.setCardValue(11);
         dealerCard3.setFrontImagePath("card3.png");
         dealerCard3.setDealer(dealer);
@@ -1089,7 +1089,7 @@ public class GameServiceTest {
 
         //addNormalDealerMessage
         //getDealerHand harmadszor, a harmadik kártyát adja vissza
-        DealerHand dealerCard4 = new DealerHand();
+        DealerCard dealerCard4 = new DealerCard();
         dealerCard4.setCardValue(7);
         dealerCard4.setFrontImagePath("card4.png");
         dealerCard4.setDealer(dealer);
@@ -1174,10 +1174,10 @@ public class GameServiceTest {
         player.setPlayerName(playerName);
         player.setCardNumber(3);
         when(playerRepository.findByPlayerName(playerName)).thenReturn(Optional.of(player));
-        PlayerHand card1 = new PlayerHand();
+        PlayerCard card1 = new PlayerCard();
         card1.setCardValue(9);
         card1.setFrontImagePath("card1.png");
-        PlayerHand card2 = new PlayerHand();
+        PlayerCard card2 = new PlayerCard();
         card2.setCardValue(2);
         card2.setFrontImagePath("card2.png");
         when(playerHandRepository.findAllByPlayerId(player.getId())).thenReturn(Optional.of(List.of(card1, card2)));
