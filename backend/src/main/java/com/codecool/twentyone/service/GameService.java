@@ -254,169 +254,208 @@ public class GameService {
     @Transactional
     public List<GameMessage> handleDealerTurn(Game currentGame) {
         List<GameMessage> messages = new ArrayList<>();
-        Player player1;
-        Player player2;
-        Player player3;
-        Player player4;
-        if (currentGame.getPlayer1() == null) {
-            player1 = null;
-        } else {
-            player1 = playerRepository.findByPlayerName(currentGame.getPlayer1()).orElseThrow(() -> new RuntimeException("Player not found"));
-        }
-        if (currentGame.getPlayer2() == null) {
-            player2 = null;
-        } else {
-            player2 = playerRepository.findByPlayerName(currentGame.getPlayer2()).orElseThrow(() -> new RuntimeException("Player not found"));
-        }
-        if (currentGame.getPlayer3() == null) {
-            player3 = null;
-        } else {
-            player3 = playerRepository.findByPlayerName(currentGame.getPlayer3()).orElseThrow(() -> new RuntimeException("Player not found"));
-        }
-        if (currentGame.getPlayer4() == null) {
-            player4 = null;
-        } else {
-            player4 = playerRepository.findByPlayerName(currentGame.getPlayer4()).orElseThrow(() -> new RuntimeException("Player not found"));
-        }
-
-        List<Player> playersWithActiveHands = new ArrayList<>();
-        if (player1 != null && player1.getPlayerState().equals(PlayerState.ENOUGH)) {
-            playersWithActiveHands.add(player1);
-            currentGame.setPublicHand1Exists(true);
-        }
-        if (player2 != null && player2.getPlayerState().equals(PlayerState.ENOUGH)) {
-            playersWithActiveHands.add(player2);
-            currentGame.setPublicHand2Exists(true);
-        }
-        if (player3 != null && player3.getPlayerState().equals(PlayerState.ENOUGH)) {
-            playersWithActiveHands.add(player3);
-            currentGame.setPublicHand3Exists(true);
-        }
-        if (player4 != null && player4.getPlayerState().equals(PlayerState.ENOUGH)) {
-            playersWithActiveHands.add(player4);
-            currentGame.setPublicHand4Exists(true);
-        }
+        List<Player> playersWithActiveHands = getPlayersWithActiveHands(currentGame);
         if (playersWithActiveHands.isEmpty()) {
-            currentGame.setState(GameState.NEW);
-            currentGame.setCardOrder(1);
-            GameMessage messageWithoutActiveHand = messageService.gameToMessage(currentGame);
-            DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
-            messageWithoutActiveHand.setDealerPublicHand(firstCardDTO);
-            messages.add(messageWithoutActiveHand);
+            processWithoutActivePlayerHand(currentGame, messages);
         } else {
-            Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
-            GameMessage firstMessage = messageService.gameToMessage(currentGame);
-            DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
-            //int dealerHandValue = firstCardDTO.handValue();
-            firstMessage.setDealerPublicHand(firstCardDTO);
-            messages.add(firstMessage);
-            int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //a DealerHandDTO-ban benne van
-            boolean announcedOhneAce = false;
-            int dealerCardsNumber = 1;
-            int minDealerHandValue;
-            if (playersWithActiveHands.size() < 3) {
-                minDealerHandValue = 15;
-            } else {
-                minDealerHandValue = 16;
-            }
-            while (dealerHandValue < minDealerHandValue) {
-                Card newCard = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
-                currentGame.setCardOrder(currentGame.getCardOrder() + 1);
-                dealerHandValue = dealerHandValue + newCard.getValue();
-                DealerHand dealerHand = new DealerHand();
-                dealerHand.setCardValue(newCard.getValue());
-                dealerHand.setFrontImagePath(newCard.getFrontImagePath());
-                dealerHand.setDealer(dealer);
-                dealerHandRepository.save(dealerHand);
-                dealerCardsNumber++;
-                currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
-                if (dealerCardsNumber == 5 && dealerHandValue < 17) {
-                    GameMessage gameMessage = messageService.gameToMessage(currentGame);
-                    DealerHandDTO dealerHandDTO = getDealerHand(currentGame.getGameId());
-                    gameMessage.setDealerPublicHand(dealerHandDTO);
-                    messages.add(gameMessage);
-                    currentGame.setInformation("Dealer discarded 5 cards!");
-                    GameMessage messageWithEmptyHand = messageService.gameToMessage(currentGame);
-                    currentGame.setInformation(null);
-                    dealerHandRepository.deleteAllByDealerId(dealer.getId());
-                    DealerHandDTO emptyDTO = new DealerHandDTO(List.of(), 0);
-                    messageWithEmptyHand.setDealerPublicHand(emptyDTO);
-                    messages.add(messageWithEmptyHand);
-                    dealerHandValue = 0;
-
-                } else if (dealerHandValue == 11 && !announcedOhneAce) {
-                    announcedOhneAce = true;
-                    currentGame.setInformation("Dealer announced 'Ohne Ace'");
-                    GameMessage gameMessage = messageService.gameToMessage(currentGame);
-                    currentGame.setInformation(null);
-                    DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
-                    gameMessage.setDealerPublicHand(handDTO);
-                    messages.add(gameMessage);
-
-                } else if (announcedOhneAce && dealerHandValue == 22) {
-                    GameMessage gameMessage = messageService.gameToMessage(currentGame);
-                    DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
-                    gameMessage.setDealerPublicHand(handDTO);
-                    messages.add(gameMessage);
-                    GameMessage messageWithoutAce = messageService.gameToMessage(currentGame);
-                    messageWithoutAce.setContent("Dealer discarded an Ace after announcing 'Ohne Ace'");
-                    dealerHandRepository.deleteAceByDealerId(currentGame.getDealerId());
-                    DealerHandDTO handDTOWithoutAce = getDealerHand(currentGame.getGameId());
-                    messageWithoutAce.setDealerPublicHand(handDTOWithoutAce);
-                    messages.add(messageWithoutAce);
-                    dealerHandValue = 11;
-                    dealerCardsNumber--;
-                } else {
-                    if (announcedOhneAce && dealerHandValue < 22) {
-                        announcedOhneAce = false;
-                    }
-                    GameMessage gameMessage = messageService.gameToMessage(currentGame);
-                    DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
-                    gameMessage.setDealerPublicHand(handDTO);
-                    messages.add(gameMessage);
-                }
-            }
-            String roundResult = "";
-            for (Player player : playersWithActiveHands) {
-                if (playerHandRepository.getHandValue(player.getId()) > dealerHandValue || dealerHandValue > 22 || (dealerHandValue == 22 && dealerHandRepository.getHandSize(currentGame.getDealerId()) > 2)) {
-                    player.setBalance(player.getBalance() + player.getPot());
-                    player.setGames(player.getGames() + 1);
-                    player.setWins(player.getWins() + 1);
-                    if (player.getPlayerName().equals(currentGame.getPlayer1())) {
-                        currentGame.setPlayer1Balance(player.getBalance());
-                        roundResult += currentGame.getPlayer1().toUpperCase() + " won " + player.getPot() / 2 + " $!";
-                    } else if (player.getPlayerName().equals(currentGame.getPlayer2())) {
-                        currentGame.setPlayer2Balance(player.getBalance());
-                        roundResult += currentGame.getPlayer2().toUpperCase() + " won " + player.getPot() / 2 + " $!";
-                    } else if (player.getPlayerName().equals(currentGame.getPlayer3())) {
-                        currentGame.setPlayer3Balance(player.getBalance());
-                        roundResult += currentGame.getPlayer3().toUpperCase() + " won " + player.getPot() / 2 + " $!";
-                    } else {
-                        currentGame.setPlayer4Balance(player.getBalance());
-                        roundResult += currentGame.getPlayer4().toUpperCase() + " won " + player.getPot() / 2 + " $!";
-                    }
-
-                } else {
-                    dealer.setBalance(dealer.getBalance() + player.getPot());
-                    roundResult += "DEALER won " + player.getPot() / 2 + " $ from " + player.getPlayerName().toUpperCase()+"!";
-                    player.setGames(player.getGames() + 1);
-                    player.setLosses(player.getLosses() + 1);
-                }
-                player.setPot(0);
-                playerRepository.save(player);
-                currentGame.setInformation(roundResult);
-            }
-            dealerRepository.save(dealer);
-            currentGame.setDealerBalance(dealer.getBalance());
-            currentGame.setState(GameState.NEW);
-            currentGame.setCardOrder(1);
-            GameMessage finalMessage = messageService.gameToMessage(currentGame);
-            DealerHandDTO finalHandDTO = getDealerHand(currentGame.getGameId());
-            finalMessage.setDealerPublicHand(finalHandDTO);
-            messages.add(finalMessage);
-            gameRepository.save(currentGame);
+            processWithActivePlayerHands(currentGame, messages, playersWithActiveHands);
         }
         return messages;
+    }
+
+    private List<Player> getPlayersWithActiveHands(Game currentGame) {
+        List<Player> playersWithActiveHands = new ArrayList<>();
+        addPlayerWithActiveHand(PlayerSlot.PLAYER1, currentGame, playersWithActiveHands);
+        addPlayerWithActiveHand(PlayerSlot.PLAYER2, currentGame, playersWithActiveHands);
+        addPlayerWithActiveHand(PlayerSlot.PLAYER3, currentGame, playersWithActiveHands);
+        addPlayerWithActiveHand(PlayerSlot.PLAYER4, currentGame, playersWithActiveHands);
+        return playersWithActiveHands;
+    }
+
+    private void addPlayerWithActiveHand(PlayerSlot slot, Game currentGame, List<Player> playersWithActiveHands) {
+        String playerName = slot.getPlayer.apply(currentGame);
+        if (playerName != null) {
+            Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+            if (player.getPlayerState().equals(PlayerState.ENOUGH)) {
+                playersWithActiveHands.add(player);
+                slot.setPublicHandExists.accept(currentGame, true);
+            }
+        }
+    }
+
+    private void processWithoutActivePlayerHand(Game currentGame, List<GameMessage> messages) {
+        currentGame.setState(GameState.NEW);
+        currentGame.setCardOrder(1);
+        GameMessage messageWithoutActiveHand = messageService.gameToMessage(currentGame);
+        DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
+        messageWithoutActiveHand.setDealerPublicHand(firstCardDTO);
+        messages.add(messageWithoutActiveHand);
+    }
+
+    private void processWithActivePlayerHands(Game currentGame, List<GameMessage> messages, List<Player> playersWithActiveHands) {
+        Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
+        addMessageWithFirstCard(currentGame, messages, firstCardDTO);
+        int dealerHandValue = firstCardDTO.handValue();
+        //int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //a DealerHandDTO-ban benne van
+        boolean announcedOhneAce = false;
+        int dealerCardsNumber = 1;
+        int minDealerHandValue = getMinDealerHandValue(playersWithActiveHands.size());
+        dealerHandValue = dealerPullsCards(currentGame, dealerHandValue, minDealerHandValue, dealer, dealerCardsNumber, messages, announcedOhneAce);
+        compareActiveHandsWithDealerHand(currentGame, playersWithActiveHands, dealerHandValue, dealer);
+
+        dealerRepository.save(dealer);
+        currentGame.setDealerBalance(dealer.getBalance());
+        currentGame.setState(GameState.NEW);
+        currentGame.setCardOrder(1);
+        addLastDealerMessage(currentGame, messages);
+
+        gameRepository.save(currentGame);
+    }
+
+    private void addMessageWithFirstCard(Game currentGame, List<GameMessage> messages, DealerHandDTO firstCardDTO) {
+        GameMessage firstMessage = messageService.gameToMessage(currentGame);
+        firstMessage.setDealerPublicHand(firstCardDTO);
+        messages.add(firstMessage);
+    }
+
+    private int getMinDealerHandValue(int activePlayers) {
+        if (activePlayers < 3) {
+            return 15;
+        } else {
+            return 16;
+        }
+    }
+
+    private int dealerPullsCards(Game currentGame, int dealerHandValue, int minDealerHandValue, Dealer dealer, int dealerCardsNumber, List<GameMessage> messages, boolean announcedOhneAce) {
+        while (dealerHandValue < minDealerHandValue) {
+            System.out.println("DealerHandValue in dealerPullsCards: " + dealerHandValue);
+            dealerHandValue = automaticCardPulling(currentGame, dealerHandValue, dealer);
+            dealerCardsNumber++;
+            if (dealerCardsNumber == 5 && dealerHandValue < 17) {
+                dealerDiscardsFiveCards(currentGame, messages, dealer);
+                dealerHandValue = 0;
+                dealerCardsNumber = 0;
+            } else if (dealerHandValue == 11 && !announcedOhneAce && dealerCardsNumber > 1) {
+                announcedOhneAce = true;
+                dealerAnnouncesOhneAce(currentGame, messages);
+            } else if (announcedOhneAce && dealerHandValue == 22) {
+                dealerDiscardsAce(currentGame, messages);
+                dealerHandValue = 11;
+                dealerCardsNumber--;
+            } else {
+                if (announcedOhneAce && dealerHandValue < 22) {
+                    announcedOhneAce = false;
+                }
+                addNormalDealerMessage(currentGame, messages);
+            }
+        }
+        return dealerHandValue;
+    }
+
+    private int automaticCardPulling(Game currentGame, int dealerHandValue, Dealer dealer) {
+        Card newCard = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
+        currentGame.setCardOrder(currentGame.getCardOrder() + 1);
+        dealerHandValue = dealerHandValue + newCard.getValue();
+        DealerHand dealerHand = new DealerHand();
+        dealerHand.setCardValue(newCard.getValue());
+        dealerHand.setFrontImagePath(newCard.getFrontImagePath());
+        dealerHand.setDealer(dealer);
+        dealerHandRepository.save(dealerHand);
+        currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
+        return dealerHandValue;
+    }
+
+    private void dealerDiscardsFiveCards(Game currentGame, List<GameMessage> messages, Dealer dealer) {
+        GameMessage gameMessage = messageService.gameToMessage(currentGame);
+        DealerHandDTO dealerHandDTO = getDealerHand(currentGame.getGameId());
+        gameMessage.setDealerPublicHand(dealerHandDTO);
+        messages.add(gameMessage);
+        currentGame.setInformation("Dealer discarded 5 cards!");
+        GameMessage messageWithEmptyHand = messageService.gameToMessage(currentGame);
+        currentGame.setInformation(null);
+        dealerHandRepository.deleteAllByDealerId(dealer.getId());
+        DealerHandDTO emptyDTO = new DealerHandDTO(List.of(), 0);
+        messageWithEmptyHand.setDealerPublicHand(emptyDTO);
+        messages.add(messageWithEmptyHand);
+    }
+
+    private void dealerAnnouncesOhneAce(Game currentGame, List<GameMessage> messages) {
+        currentGame.setInformation("Dealer announced 'Ohne Ace'");
+        GameMessage gameMessage = messageService.gameToMessage(currentGame);
+        currentGame.setInformation(null);
+        DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
+        gameMessage.setDealerPublicHand(handDTO);
+        messages.add(gameMessage);
+    }
+
+    private void dealerDiscardsAce(Game currentGame, List<GameMessage> messages) {
+        GameMessage gameMessage = messageService.gameToMessage(currentGame);
+        DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
+        gameMessage.setDealerPublicHand(handDTO);
+        messages.add(gameMessage);
+        GameMessage messageWithoutAce = messageService.gameToMessage(currentGame);
+        messageWithoutAce.setContent("Dealer discarded an Ace after announcing 'Ohne Ace'");
+        dealerHandRepository.deleteAceByDealerId(currentGame.getDealerId());
+        DealerHandDTO handDTOWithoutAce = getDealerHand(currentGame.getGameId());
+        messageWithoutAce.setDealerPublicHand(handDTOWithoutAce);
+        messages.add(messageWithoutAce);
+    }
+
+    private void addNormalDealerMessage(Game currentGame, List<GameMessage> messages) {
+        GameMessage gameMessage = messageService.gameToMessage(currentGame);
+        DealerHandDTO handDTO = getDealerHand(currentGame.getGameId());
+        gameMessage.setDealerPublicHand(handDTO);
+        messages.add(gameMessage);
+    }
+
+    private void compareActiveHandsWithDealerHand(Game currentGame, List<Player> playersWithActiveHands, int dealerHandValue, Dealer dealer) {
+        String roundResult = "";
+        for (Player player : playersWithActiveHands) {
+            if (playerHandRepository.getHandValue(player.getId()) > dealerHandValue || dealerHandValue > 22 || (dealerHandValue == 22 && dealerHandRepository.getHandSize(currentGame.getDealerId()) > 2)) {
+                roundResult = processWhenPlayerWon(currentGame, player, roundResult);
+            } else {
+                roundResult = processWhenDealerWon(player, dealer, roundResult);
+            }
+            player.setPot(0);
+            playerRepository.save(player);
+            currentGame.setInformation(roundResult);
+        }
+    }
+
+    private String processWhenPlayerWon(Game currentGame, Player player, String roundResult) {
+        player.setBalance(player.getBalance() + player.getPot());
+        player.setGames(player.getGames() + 1);
+        player.setWins(player.getWins() + 1);
+        if (player.getPlayerName().equals(currentGame.getPlayer1())) {
+            currentGame.setPlayer1Balance(player.getBalance());
+            roundResult += currentGame.getPlayer1().toUpperCase() + " won " + player.getPot() / 2 + " $!";
+        } else if (player.getPlayerName().equals(currentGame.getPlayer2())) {
+            currentGame.setPlayer2Balance(player.getBalance());
+            roundResult += currentGame.getPlayer2().toUpperCase() + " won " + player.getPot() / 2 + " $!";
+        } else if (player.getPlayerName().equals(currentGame.getPlayer3())) {
+            currentGame.setPlayer3Balance(player.getBalance());
+            roundResult += currentGame.getPlayer3().toUpperCase() + " won " + player.getPot() / 2 + " $!";
+        } else {
+            currentGame.setPlayer4Balance(player.getBalance());
+            roundResult += currentGame.getPlayer4().toUpperCase() + " won " + player.getPot() / 2 + " $!";
+        }
+        return roundResult;
+    }
+
+    private String processWhenDealerWon(Player player, Dealer dealer, String roundResult) {
+        dealer.setBalance(dealer.getBalance() + player.getPot());
+        roundResult += "DEALER won " + player.getPot() / 2 + " $ from " + player.getPlayerName().toUpperCase()+"!";
+        player.setGames(player.getGames() + 1);
+        player.setLosses(player.getLosses() + 1);
+        return roundResult;
+    }
+
+    private void addLastDealerMessage(Game currentGame, List<GameMessage> messages) {
+        GameMessage finalMessage = messageService.gameToMessage(currentGame);
+        DealerHandDTO finalHandDTO = getDealerHand(currentGame.getGameId());
+        finalMessage.setDealerPublicHand(finalHandDTO);
+        messages.add(finalMessage);
     }
 
     public DealerHandDTO getDealerHand(Long gameId) {
@@ -444,21 +483,21 @@ public class GameService {
 
     private void betProcessOfTurnPlayer(String turnName, Integer bet, Game currentGame, Dealer dealer) {
         if (turnName.equals(currentGame.getPlayer1())) {
-            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer1());
+            placingBetProcess(currentGame, bet, dealer, currentGame.getPlayer1());
             currentGame.setPlayer1Balance(currentGame.getPlayer1Balance() - bet);
         } else if (turnName.equals(currentGame.getPlayer2())) {
-            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer2());
+            placingBetProcess(currentGame, bet, dealer, currentGame.getPlayer2());
             currentGame.setPlayer2Balance(currentGame.getPlayer2Balance() - bet);
         } else if (turnName.equals(currentGame.getPlayer3())) {
-            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer3());
+            placingBetProcess(currentGame, bet, dealer, currentGame.getPlayer3());
             currentGame.setPlayer3Balance(currentGame.getPlayer3Balance() - bet);
         } else {
-            placeBetProcess(currentGame, bet, dealer, currentGame.getPlayer4());
+            placingBetProcess(currentGame, bet, dealer, currentGame.getPlayer4());
             currentGame.setPlayer4Balance(currentGame.getPlayer4Balance() - bet);
         }
     }
 
-    private void placeBetProcess(Game currentGame, int bet, Dealer dealer, String turnName) {
+    private void placingBetProcess(Game currentGame, int bet, Dealer dealer, String turnName) {
         Player player = playerRepository.findByPlayerName(turnName).orElseThrow(() -> new RuntimeException("Player not found"));
         if (player.getBalance() < bet) {
             throw new RuntimeException("Player's balance is less than bet");
