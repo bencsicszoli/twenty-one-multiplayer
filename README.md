@@ -39,11 +39,6 @@ Placing bet: after placing a bet players *must* request another card
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-<!-- GETTING STARTED -->
-
-## Getting Started
-
-These instructions will get you a copy of askMate up and running locally for development.
 
 ### Prerequisites
 
@@ -126,16 +121,7 @@ Project Link: [https://github.com/your-org/twenty-one-multiplayer](https://githu
 
 <!-- MARKDOWN LINKS & IMAGES -->
 
-[contributors-shield]: https://img.shields.io/github/contributors/dkisb/askMate.svg?style=for-the-badge
-[contributors-url]: https://github.com/dkisb/askMate/graphs/contributors
-[forks-shield]: https://img.shields.io/github/forks/dkisb/askMate.svg?style=for-the-badge
-[forks-url]: https://github.com/dkisb/askMate/network/members
-[stars-shield]: https://img.shields.io/github/stars/dkisb/askMate.svg?style=for-the-badge
-[stars-url]: https://github.com/dkisb/askMate/stargazers
-[issues-shield]: https://img.shields.io/github/issues/dkisb/askMate.svg?style=for-the-badge
-[issues-url]: https://github.com/dkisb/askMate/issues
-[license-shield]: https://img.shields.io/github/license/dkisb/askMate.svg?style=for-the-badge
-[license-url]: https://github.com/dkisb/askMate/blob/main/LICENSE
+
 [product-screenshot]: public/screenshot.png
 [React.js]: https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB
 [React-url]: https://react.dev/
