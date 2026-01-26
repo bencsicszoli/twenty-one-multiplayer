@@ -12,14 +12,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Optional;
-
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -46,9 +43,6 @@ public class GameServiceTest {
 
     @Mock
     private MessageService messageService;
-
-    @Mock
-    private GameMessage message;
 
     @InjectMocks
     private GameService gameService;
@@ -550,6 +544,605 @@ public class GameServiceTest {
     }
 
     @Test
+    void handleDealerTurn_shouldReturnOneMessage_when_activePlayersAreZero() {
+        Game game = new Game();
+        game.setPlayer1("John");
+        game.setPlayer3("Jane");
+        game.setGameId(5L);
+        game.setDealerId(8L);
+        game.setState(GameState.IN_PROGRESS);
+        game.setCardOrder(6);
+        Player player1 = new Player();
+        player1.setPlayerName(game.getPlayer1());
+        player1.setPlayerState(PlayerState.MUCH);
+        when(playerRepository.findByPlayerName(player1.getPlayerName())).thenReturn(Optional.of(player1));
+        Player player2 = new Player();
+        player2.setPlayerName(game.getPlayer3());
+        player2.setPlayerState(PlayerState.FIRE);
+        when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+        DealerHand dealerHand = new DealerHand();
+        dealerHand.setCardValue(3);
+        dealerHand.setFrontImagePath("card.png");
+        List<DealerHand> cards = List.of(dealerHand);
+        when(dealerHandRepository.findAllByDealerId(game.getDealerId())).thenReturn(Optional.of(cards));
+        int dealerHandValue = 3;
+        when(dealerHandRepository.getHandValue(game.getDealerId())).thenReturn(dealerHandValue);
+
+        List<GameMessage> messages = gameService.handleDealerTurn(game);
+
+        assertEquals(1, messages.size());
+        assertEquals(GameState.NEW, game.getState());
+        assertEquals(1, game.getCardOrder());
+        CardDTO dto = new CardDTO(3, "card.png");
+        DealerHandDTO expected = new DealerHandDTO(List.of(dto), 3);
+        assertEquals(expected, messages.getFirst().getDealerPublicHand());
+    }
+
+    @Test
+    void handleDealerTurn_shouldReturnMoreMessages_when_twoActivePlayers() {
+        Game game = new Game();
+        game.setPlayer2("John");
+        game.setPlayer4("Jane");
+        game.setDealerId(8L);
+        game.setGameId(5L);
+        game.setCardOrder(6);
+        game.setDealerBalance(80);
+        game.setState(GameState.IN_PROGRESS);
+        game.setCardOrder(6);
+        game.setPlayer2Balance(50);
+        game.setPlayer4Balance(60);
+        game.setRemainingCards(27);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        Player player1 = new Player();
+        player1.setPlayerName(game.getPlayer2());
+        player1.setPlayerState(PlayerState.ENOUGH);
+        player1.setId(3L);
+        player1.setPot(4);
+        player1.setGames(5);
+        player1.setWins(3);
+        player1.setLosses(2);
+        player1.setBalance(game.getPlayer2Balance());
+        when(playerRepository.findByPlayerName(player1.getPlayerName())).thenReturn(Optional.of(player1));
+
+        Player player2 = new Player();
+        player2.setPlayerName(game.getPlayer4());
+        player2.setPlayerState(PlayerState.ENOUGH);
+        player2.setId(4L);
+        player2.setPot(6);
+        player2.setGames(7);
+        player2.setWins(2);
+        player2.setLosses(5);
+        player2.setBalance(game.getPlayer4Balance());
+        when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
+
+        Dealer dealer = new Dealer();
+        dealer.setId(game.getDealerId());
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+
+        DealerHand dealerCard1 = new DealerHand();
+        dealerCard1.setCardValue(11);
+        dealerCard1.setFrontImagePath("card1.png");
+        dealerCard1.setDealer(dealer);
+
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        Card newCard = new Card();
+        newCard.setValue(7);
+        newCard.setFrontImagePath("card2.png");
+        when(shuffleRepository.findCardByGameIdAndCardOrder(game.getGameId(), game.getCardOrder())).thenReturn(Optional.of(newCard));
+
+        DealerHand dealerCard2 = new DealerHand();
+        dealerCard2.setDealer(dealer);
+        dealerCard2.setFrontImagePath(newCard.getFrontImagePath());
+        dealerCard2.setCardValue(newCard.getValue());
+
+        when(playerHandRepository.getHandValue(player1.getId())).thenReturn(17);
+        when(playerHandRepository.getHandValue(player2.getId())).thenReturn(19);
+
+        when(dealerHandRepository.findAllByDealerId(dealer.getId()))
+                .thenReturn(Optional.of(List.of(dealerCard1)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2)));
+        when(dealerHandRepository.getHandValue(dealer.getId()))
+                .thenReturn(dealerCard1.getCardValue())
+                .thenReturn(dealerCard1.getCardValue() + dealerCard2.getCardValue())
+                .thenReturn(dealerCard1.getCardValue() + dealerCard2.getCardValue());
+
+        List<GameMessage> messages = gameService.handleDealerTurn(game);
+
+        assertEquals(3, messages.size());
+        assertEquals(GameState.NEW, game.getState());
+        assertEquals(1, game.getCardOrder());
+        assertEquals(50, game.getPlayer2Balance());
+        assertEquals(66, game.getPlayer4Balance());
+        assertEquals(84, game.getDealerBalance());
+        assertEquals(26, game.getRemainingCards());
+        CardDTO dto1 = new CardDTO(11, "card1.png");
+        CardDTO dto2 = new CardDTO(7, "card2.png");
+        DealerHandDTO expected = new DealerHandDTO(List.of(dto1, dto2), 18);
+        assertEquals(expected, messages.getLast().getDealerPublicHand());
+        assertEquals("DEALER won 2 $ from JOHN!JANE won 3 $!", game.getInformation());
+        assertEquals(6, player1.getGames());
+        assertEquals(8, player2.getGames());
+        assertEquals(3, player1.getLosses());
+        assertEquals(3, player2.getWins());
+        assertEquals(0, player1.getPot());
+        assertEquals(0, player2.getPot());
+    }
+
+    @Test
+    void handleDealerTurn_shouldDiscardCards_when_hasFiveCards_AndTwoActivePlayers() {
+
+        //handleDealerTurn
+        Game game = new Game();
+        game.setPlayer2("John");
+        game.setPlayer4("Jane");
+        game.setDealerId(8L);
+        game.setGameId(5L);
+        game.setCardOrder(6);
+        game.setDealerBalance(80);
+        game.setState(GameState.IN_PROGRESS);
+        game.setCardOrder(6);
+        game.setPlayer2Balance(50);
+        game.setPlayer4Balance(60);
+        game.setRemainingCards(27);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        //getPlayerWithActiveHands
+        //addPlayerWithActiveHand
+        Player player1 = new Player();
+        player1.setPlayerName(game.getPlayer2());
+        player1.setPlayerState(PlayerState.ENOUGH);
+        player1.setId(3L);
+        player1.setPot(4);
+        player1.setGames(5);
+        player1.setWins(3);
+        player1.setLosses(2);
+        player1.setBalance(game.getPlayer2Balance());
+        when(playerRepository.findByPlayerName(player1.getPlayerName())).thenReturn(Optional.of(player1));
+
+        Player player2 = new Player();
+        player2.setPlayerName(game.getPlayer4());
+        player2.setPlayerState(PlayerState.ENOUGH);
+        player2.setId(4L);
+        player2.setPot(6);
+        player2.setGames(7);
+        player2.setWins(2);
+        player2.setLosses(5);
+        player2.setBalance(game.getPlayer4Balance());
+        when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
+
+        //processWithActivePlayerHands
+        Dealer dealer = new Dealer();
+        dealer.setId(game.getDealerId());
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+
+        //getDealerHand először, az első lapot adja vissza
+        DealerHand dealerCard1 = new DealerHand();
+        dealerCard1.setCardValue(2);
+        dealerCard1.setFrontImagePath("card1.png");
+        dealerCard1.setDealer(dealer);
+
+
+        //addMessageWithFirsCard
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        //getMinHandValue
+        //dealerPullsCards
+        //automaticCardPulling
+        Card card2 = new Card(); //ez a második lap
+        card2.setValue(3);
+        card2.setFrontImagePath("card2.png");
+        //addNormalDealerMessage
+        //getDealerHand másodszor, a második kártyát adja vissza
+        DealerHand dealerCard2 = new DealerHand();
+        dealerCard2.setCardValue(3);
+        dealerCard2.setFrontImagePath("card2.png");
+        dealerCard2.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card3 = new Card(); //ez a harmadik lap
+        card3.setValue(4);
+        card3.setFrontImagePath("card3.png");
+
+        //addNormalDealerMessage
+        //getDealerHand harmadszor, a harmadik kártyát adja vissza
+        DealerHand dealerCard3 = new DealerHand();
+        dealerCard3.setCardValue(4);
+        dealerCard3.setFrontImagePath("card3.png");
+        dealerCard3.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card4 = new Card(); //ez a negyedik lap
+        card4.setValue(3);
+        card4.setFrontImagePath("card4.png");
+
+        //addNormalDealerMessage
+        //getDealerHand negyedszer, a negyedik kártyát adja vissza
+        DealerHand dealerCard4 = new DealerHand();
+        dealerCard4.setCardValue(3);
+        dealerCard4.setFrontImagePath("card4.png");
+        dealerCard4.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card5 = new Card(); //ez az ötödik lap
+        card5.setValue(4);
+        card5.setFrontImagePath("card5.png");
+
+        //dealerDiscardsFiveCards
+        //getDealerHand ötödször, az ötödik kártyát adja vissza
+        DealerHand dealerCard5 = new DealerHand();
+        dealerCard5.setCardValue(4);
+        dealerCard5.setFrontImagePath("card5.png");
+        dealerCard5.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card6 = new Card(); //ez a hatodik (első) lap
+        card6.setValue(11);
+        card6.setFrontImagePath("card6.png");
+
+        //addNormalDealerMessage
+        //getDealerHand hatodszor, a hatodik kártyát adja vissza
+        DealerHand dealerCard6 = new DealerHand();
+        dealerCard6.setCardValue(11);
+        dealerCard6.setFrontImagePath("card6.png");
+        dealerCard6.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card7 = new Card(); //ez a hetedik (második) lap
+        card7.setValue(7);
+        card7.setFrontImagePath("card7.png");
+
+        //addNormalDealerMessage
+        //getDealerHand hetedszer, a hetedik kártyát adja vissza
+        DealerHand dealerCard7 = new DealerHand();
+        dealerCard7.setCardValue(7);
+        dealerCard7.setFrontImagePath("card7.png");
+        dealerCard7.setDealer(dealer);
+        when(dealerHandRepository.findAllByDealerId(dealer.getId()))
+                .thenReturn(Optional.of(List.of(dealerCard1)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard3)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard3, dealerCard4)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard3, dealerCard4, dealerCard5)))
+                .thenReturn(Optional.of(List.of(dealerCard6)))
+                .thenReturn(Optional.of(List.of(dealerCard6, dealerCard7)))
+                .thenReturn(Optional.of(List.of(dealerCard6, dealerCard7)));
+        when(dealerHandRepository.getHandValue(dealer.getId()))
+                .thenReturn(2)
+                .thenReturn(5)
+                .thenReturn(9)
+                .thenReturn(12)
+                .thenReturn(16)
+                .thenReturn(11)
+                .thenReturn(18)
+                .thenReturn(18);
+        when(shuffleRepository.findCardByGameIdAndCardOrder(
+                eq(game.getGameId()),
+                anyInt()))
+                .thenReturn(Optional.of(card2))
+                .thenReturn(Optional.of(card3))
+                .thenReturn(Optional.of(card4))
+                .thenReturn(Optional.of(card5))
+                .thenReturn(Optional.of(card6))
+                .thenReturn(Optional.of(card7));
+
+        when(playerHandRepository.getHandValue(player1.getId())).thenReturn(19);
+        when(playerHandRepository.getHandValue(player2.getId())).thenReturn(17);
+
+        List<GameMessage> messages = gameService.handleDealerTurn(game);
+
+        assertEquals(9, messages.size());
+        assertEquals(GameState.NEW, game.getState());
+        assertEquals(1, game.getCardOrder());
+        assertEquals(54, game.getPlayer2Balance());
+        assertEquals(60, game.getPlayer4Balance());
+        assertEquals(86, game.getDealerBalance());
+        assertEquals(21, game.getRemainingCards());
+        CardDTO dto1 = new CardDTO(11, "card6.png");
+        CardDTO dto2 = new CardDTO(7, "card7.png");
+        DealerHandDTO expected = new DealerHandDTO(List.of(dto1, dto2), 18);
+        assertEquals(expected, messages.getLast().getDealerPublicHand());
+        assertEquals("JOHN won 2 $!DEALER won 3 $ from JANE!", game.getInformation());
+        assertEquals(6, player1.getGames());
+        assertEquals(8, player2.getGames());
+        assertEquals(4, player1.getWins());
+        assertEquals(6, player2.getLosses());
+        assertEquals(0, player1.getPot());
+        assertEquals(0, player2.getPot());
+    }
+
+    @Test
+    void handleDealerTurn_shouldAnnounceOhneAce_when_twoActivePlayers() {
+
+        //handleDealerTurn
+        Game game = new Game();
+        game.setPlayer1("John");
+        game.setPlayer3("Jane");
+        game.setDealerId(8L);
+        game.setGameId(5L);
+        game.setCardOrder(6);
+        game.setDealerBalance(80);
+        game.setState(GameState.IN_PROGRESS);
+        game.setCardOrder(6);
+        game.setPlayer1Balance(50);
+        game.setPlayer3Balance(60);
+        game.setRemainingCards(27);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        //getPlayerWithActiveHands
+        //addPlayerWithActiveHand
+        Player player1 = new Player();
+        player1.setPlayerName(game.getPlayer1());
+        player1.setPlayerState(PlayerState.ENOUGH);
+        player1.setId(3L);
+        player1.setPot(4);
+        player1.setGames(5);
+        player1.setWins(3);
+        player1.setLosses(2);
+        player1.setBalance(game.getPlayer1Balance());
+        when(playerRepository.findByPlayerName(player1.getPlayerName())).thenReturn(Optional.of(player1));
+
+        Player player2 = new Player();
+        player2.setPlayerName(game.getPlayer3());
+        player2.setPlayerState(PlayerState.ENOUGH);
+        player2.setId(4L);
+        player2.setPot(6);
+        player2.setGames(7);
+        player2.setWins(2);
+        player2.setLosses(5);
+        player2.setBalance(game.getPlayer3Balance());
+        when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
+
+        //processWithActivePlayerHands
+        Dealer dealer = new Dealer();
+        dealer.setId(game.getDealerId());
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+
+        //getDealerHand először, az első lapot adja vissza
+        DealerHand dealerCard1 = new DealerHand();
+        dealerCard1.setCardValue(2);
+        dealerCard1.setFrontImagePath("card1.png");
+        dealerCard1.setDealer(dealer);
+
+
+        //addMessageWithFirsCard
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        //getMinHandValue
+        //dealerPullsCards
+        //automaticCardPulling
+        Card card2 = new Card(); //ez a második lap
+        card2.setValue(9);
+        card2.setFrontImagePath("card2.png");
+        //addNormalDealerMessage
+        //getDealerHand másodszor, a második kártyát adja vissza
+        DealerHand dealerCard2 = new DealerHand();
+        dealerCard2.setCardValue(9);
+        dealerCard2.setFrontImagePath("card2.png");
+        dealerCard2.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card3 = new Card(); //ez a harmadik lap
+        card3.setValue(7);
+        card3.setFrontImagePath("card3.png");
+
+        //addNormalDealerMessage
+        //getDealerHand harmadszor, a harmadik kártyát adja vissza
+        DealerHand dealerCard3 = new DealerHand();
+        dealerCard3.setCardValue(7);
+        dealerCard3.setFrontImagePath("card3.png");
+        dealerCard3.setDealer(dealer);
+
+        when(dealerHandRepository.findAllByDealerId(dealer.getId()))
+                .thenReturn(Optional.of(List.of(dealerCard1)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard3)));
+        when(dealerHandRepository.getHandValue(dealer.getId()))
+                .thenReturn(2)
+                .thenReturn(11)
+                .thenReturn(18);
+        when(shuffleRepository.findCardByGameIdAndCardOrder(
+                eq(game.getGameId()),
+                anyInt()))
+                .thenReturn(Optional.of(card2))
+                .thenReturn(Optional.of(card3));
+
+        when(playerHandRepository.getHandValue(player1.getId())).thenReturn(19);
+        when(playerHandRepository.getHandValue(player2.getId())).thenReturn(17);
+
+        List<GameMessage> messages = gameService.handleDealerTurn(game);
+
+        assertEquals(4, messages.size());
+        assertEquals(GameState.NEW, game.getState());
+        assertEquals(1, game.getCardOrder());
+        assertEquals(54, game.getPlayer1Balance());
+        assertEquals(60, game.getPlayer3Balance());
+        assertEquals(86, game.getDealerBalance());
+        assertEquals(25, game.getRemainingCards());
+        CardDTO dto1 = new CardDTO(2, "card1.png");
+        CardDTO dto2 = new CardDTO(9, "card2.png");
+        CardDTO dto3 = new CardDTO(7, "card3.png");
+        DealerHandDTO expected = new DealerHandDTO(List.of(dto1, dto2, dto3), 18);
+        assertEquals(expected, messages.getLast().getDealerPublicHand());
+        assertEquals("JOHN won 2 $!DEALER won 3 $ from JANE!", game.getInformation());
+        assertEquals(6, player1.getGames());
+        assertEquals(8, player2.getGames());
+        assertEquals(4, player1.getWins());
+        assertEquals(6, player2.getLosses());
+        assertEquals(0, player1.getPot());
+        assertEquals(0, player2.getPot());
+    }
+
+    @Test
+    void handleDealerTurn_shouldDiscardAceAfterAnnouncingOhneAce_when_threeActivePlayers() {
+
+        //handleDealerTurn
+        Game game = new Game();
+        game.setPlayer1("John");
+        game.setPlayer2("Jack");
+        game.setPlayer3("Jane");
+        game.setDealerId(8L);
+        game.setGameId(5L);
+        game.setCardOrder(6);
+        game.setDealerBalance(80);
+        game.setState(GameState.IN_PROGRESS);
+        game.setCardOrder(6);
+        game.setPlayer1Balance(50);
+        game.setPlayer2Balance(70);
+        game.setPlayer3Balance(60);
+        game.setRemainingCards(27);
+        when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
+
+        //getPlayerWithActiveHands
+        //addPlayerWithActiveHand
+        Player player1 = new Player();
+        player1.setPlayerName(game.getPlayer1());
+        player1.setPlayerState(PlayerState.ENOUGH);
+        player1.setId(3L);
+        player1.setPot(4);
+        player1.setGames(5);
+        player1.setWins(3);
+        player1.setLosses(2);
+        player1.setBalance(game.getPlayer1Balance());
+        when(playerRepository.findByPlayerName(player1.getPlayerName())).thenReturn(Optional.of(player1));
+
+        Player player2 = new Player();
+        player2.setPlayerName(game.getPlayer2());
+        player2.setPlayerState(PlayerState.ENOUGH);
+        player2.setId(4L);
+        player2.setPot(6);
+        player2.setGames(7);
+        player2.setWins(2);
+        player2.setLosses(5);
+        player2.setBalance(game.getPlayer2Balance());
+        when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
+
+
+        Player player3 = new Player();
+        player3.setPlayerName(game.getPlayer3());
+        player3.setPlayerState(PlayerState.ENOUGH);
+        player3.setId(5L);
+        player3.setPot(8);
+        player3.setGames(9);
+        player3.setWins(4);
+        player3.setLosses(5);
+        player3.setBalance(game.getPlayer3Balance());
+        when(playerRepository.findByPlayerName(player3.getPlayerName())).thenReturn(Optional.of(player3));
+
+        //processWithActivePlayerHands
+        Dealer dealer = new Dealer();
+        dealer.setId(game.getDealerId());
+        dealer.setBalance(game.getDealerBalance());
+        when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
+
+        //getDealerHand először, az első lapot adja vissza
+        DealerHand dealerCard1 = new DealerHand();
+        dealerCard1.setCardValue(2);
+        dealerCard1.setFrontImagePath("card1.png");
+        dealerCard1.setDealer(dealer);
+
+
+        //addMessageWithFirsCard
+        GameMessage gameMessage = new GameMessage();
+        when(messageService.gameToMessage(game)).thenReturn(gameMessage);
+
+        //getMinHandValue
+        //dealerPullsCards
+        //automaticCardPulling
+        Card card2 = new Card(); //ez a második lap
+        card2.setValue(9);
+        card2.setFrontImagePath("card2.png");
+        //addNormalDealerMessage
+        //getDealerHand másodszor, a második kártyát adja vissza
+        DealerHand dealerCard2 = new DealerHand();
+        dealerCard2.setCardValue(9);
+        dealerCard2.setFrontImagePath("card2.png");
+        dealerCard2.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card3 = new Card(); //ez a harmadik lap
+        card3.setValue(11);
+        card3.setFrontImagePath("card3.png");
+
+        //addNormalDealerMessage
+        //getDealerHand harmadszor, a harmadik kártyát adja vissza
+        DealerHand dealerCard3 = new DealerHand();
+        dealerCard3.setCardValue(11);
+        dealerCard3.setFrontImagePath("card3.png");
+        dealerCard3.setDealer(dealer);
+
+        //automaticCardPulling
+        Card card4 = new Card(); //ez a harmadik lap
+        card4.setValue(7);
+        card4.setFrontImagePath("card4.png");
+
+        //addNormalDealerMessage
+        //getDealerHand harmadszor, a harmadik kártyát adja vissza
+        DealerHand dealerCard4 = new DealerHand();
+        dealerCard4.setCardValue(7);
+        dealerCard4.setFrontImagePath("card4.png");
+        dealerCard4.setDealer(dealer);
+
+        when(dealerHandRepository.findAllByDealerId(dealer.getId()))
+                .thenReturn(Optional.of(List.of(dealerCard1)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard3)))
+                .thenReturn(Optional.of(List.of(dealerCard1, dealerCard2, dealerCard4)));
+        when(dealerHandRepository.getHandValue(dealer.getId()))
+                .thenReturn(2)
+                .thenReturn(11)
+                .thenReturn(22)
+                .thenReturn(18);
+        when(shuffleRepository.findCardByGameIdAndCardOrder(
+                eq(game.getGameId()),
+                anyInt()))
+                .thenReturn(Optional.of(card2))
+                .thenReturn(Optional.of(card3))
+                .thenReturn(Optional.of(card4));
+
+        when(playerHandRepository.getHandValue(player1.getId())).thenReturn(19);
+        when(playerHandRepository.getHandValue(player2.getId())).thenReturn(17);
+        when(playerHandRepository.getHandValue(player3.getId())).thenReturn(20);
+
+        List<GameMessage> messages = gameService.handleDealerTurn(game);
+
+        assertEquals(6, messages.size());
+        assertEquals(GameState.NEW, game.getState());
+        assertEquals(1, game.getCardOrder());
+        assertEquals(54, game.getPlayer1Balance());
+        assertEquals(70, game.getPlayer2Balance());
+        assertEquals(68, game.getPlayer3Balance());
+        assertEquals(86, game.getDealerBalance());
+        assertEquals(24, game.getRemainingCards());
+        CardDTO dto1 = new CardDTO(2, "card1.png");
+        CardDTO dto2 = new CardDTO(9, "card2.png");
+        CardDTO dto3 = new CardDTO(7, "card4.png");
+        DealerHandDTO expected = new DealerHandDTO(List.of(dto1, dto2, dto3), 18);
+        assertEquals(expected, messages.getLast().getDealerPublicHand());
+        assertEquals("JOHN won 2 $!DEALER won 3 $ from JACK!JANE won 4 $!", game.getInformation());
+        assertEquals(6, player1.getGames());
+        assertEquals(8, player2.getGames());
+        assertEquals(10, player3.getGames());
+        assertEquals(4, player1.getWins());
+        assertEquals(6, player2.getLosses());
+        assertEquals(5, player3.getWins());
+        assertEquals(0, player1.getPot());
+        assertEquals(0, player2.getPot());
+        assertEquals(0, player3.getPot());
+    }
+
+    @Test
     void setPlayerStateToOhneAce_shouldReturnPlayerStateDTO_when_PlayerStateIsNotOhneAce() {
         String playerName = "John";
         PlayerStateDTO expected = new PlayerStateDTO(PlayerState.OHNE_ACE.toString(), "playerState.update");
@@ -743,5 +1336,4 @@ public class GameServiceTest {
 
 
     }
-
 }
