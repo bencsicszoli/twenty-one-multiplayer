@@ -62,7 +62,6 @@ public class PlayerService {
         List<String> roles = userDetails.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toList());
-
         return new JwtResponseDTO(jwt, userDetails.getUsername(), roles);
     }
 
