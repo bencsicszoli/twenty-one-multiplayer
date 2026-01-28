@@ -5,7 +5,6 @@ import com.codecool.twentyone.exception_handler.custom_exception.NotAllowedOpera
 import com.codecool.twentyone.exception_handler.custom_exception.PlayerNameAlreadyExistsException;
 import com.codecool.twentyone.model.dto.restdto.*;
 import com.codecool.twentyone.model.entities.Player;
-import com.codecool.twentyone.model.entities.Role;
 import com.codecool.twentyone.repository.PlayerRepository;
 import com.codecool.twentyone.security.jwt.JwtUtils;
 import org.junit.jupiter.api.Test;
@@ -22,13 +21,10 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
-
 import java.util.*;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.*;
-import static org.mockito.Mockito.mock;
 
 @ExtendWith(MockitoExtension.class)
 public class PlayerServiceTest {
