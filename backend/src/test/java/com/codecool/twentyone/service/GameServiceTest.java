@@ -1195,7 +1195,7 @@ public class GameServiceTest {
     }
 
     @Test
-    void leaveGame_shouldReturnNull_when_lastPlayerLeaveGame() {
+    void leaveGame_shouldReturnNull_when_lastPlayerLeavesGame() {
         Long gameId = 2L;
         String playerName = "John";
         Player player = new Player();

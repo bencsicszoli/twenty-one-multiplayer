@@ -36,9 +36,12 @@ public class GameService {
 
     @Transactional
     public PlayerHandDTO getFirstCard(Long gameId, String playerName) {
-        Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
-        Card firstCard = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
-        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        //Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        Game game = loadGame(gameId);
+        //Card firstCard = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
+        Card firstCard = getNextCard(gameId, game.getCardOrder());
+        Player player = loadPlayer(playerName);
+        //Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
         PlayerCard playerCard = new PlayerCard();
         playerCard.setCardValue(firstCard.getValue());
         playerCard.setFrontImagePath(firstCard.getFrontImagePath());
@@ -93,7 +96,7 @@ public class GameService {
         //playerRepository.save(currentPlayer);
         currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
         //Card card = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
-        Card card = loadNextCard(currentGame.getGameId(), currentGame.getCardOrder());
+        Card card = getNextCard(currentGame.getGameId(), currentGame.getCardOrder());
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
         PlayerCard handCard = new PlayerCard();
         handCard.setCardValue(card.getValue());
@@ -188,7 +191,7 @@ public class GameService {
         return dealerRepository.findById(dealerId).orElseThrow(() -> new RuntimeException("Dealer not found"));
     }
 
-    private Card loadNextCard(Long gameId, int cardOrder) {
+    private Card getNextCard(Long gameId, int cardOrder) {
         return shuffleRepository.findCardByGameIdAndCardOrder(gameId, cardOrder).orElseThrow(() -> new RuntimeException("Card not found"));
     }
 

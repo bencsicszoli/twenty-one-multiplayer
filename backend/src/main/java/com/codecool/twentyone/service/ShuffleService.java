@@ -42,12 +42,7 @@ public class ShuffleService {
         shuffleRepository.saveAll(cardsToSave);
     }
 
-    public Card getNextCardFromDeck(Long gameId, int order) {
-        return shuffleRepository.findCardByGameIdAndCardOrder(gameId, order)
-                .orElseThrow(() -> new NoSuchElementException("Card not found"));
-    }
-
-    List<Integer> getShuffledCardIndexes() {
+    private List<Integer> getShuffledCardIndexes() {
         List<Integer> cardIndexes = IntStream.rangeClosed(1, 32)
                 .boxed()
                 .collect(Collectors.toList());
@@ -62,14 +57,5 @@ public class ShuffleService {
             fakeCards.add(new Shuffle(fakeDeck.getCard(), gameId, fakeDeck.getCardOrder()));
         }
         shuffleRepository.saveAll(fakeCards);
-    }
-
-    public void useShuffleAgain(Long gameId) {
-        List<Shuffle> existingDeck = shuffleRepository.findAll();
-        List<Shuffle> fakeDeck = new ArrayList<>();
-        for (Shuffle shuffle : existingDeck) {
-            fakeDeck.add(new Shuffle(shuffle.getCard(), gameId, shuffle.getCardOrder()));
-        }
-        shuffleRepository.saveAll(fakeDeck);
     }
 }
