@@ -1,7 +1,6 @@
 package com.codecool.twentyone.controller.restcontroller;
 
 import com.codecool.twentyone.model.dto.restdto.*;
-import com.codecool.twentyone.service.GameService;
 import com.codecool.twentyone.service.PlayerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,11 +12,9 @@ import java.util.Map;
 @RequestMapping("/api/user")
 public class PlayerController {
     private final PlayerService playerService;
-    private final GameService gameService;
 
-    public PlayerController(PlayerService playerService, GameService gameService) {
+    public PlayerController(PlayerService playerService) {
         this.playerService = playerService;
-        this.gameService = gameService;
     }
 
     @PostMapping("/register")

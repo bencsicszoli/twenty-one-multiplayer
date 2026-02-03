@@ -33,6 +33,7 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
+                System.out.println("token: " + token);
 
                 if (jwtUtils.validateJwtToken(token)) {
                     String username = jwtUtils.getUserNameFromJwtToken(token);
