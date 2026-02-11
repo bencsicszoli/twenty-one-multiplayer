@@ -1,5 +1,6 @@
 package com.codecool.twentyone.controller.websocketcontroller;
 
+import com.codecool.twentyone.exception_handler.custom_exception.NotAllowedOperationException;
 import com.codecool.twentyone.model.dto.*;
 import com.codecool.twentyone.model.dto.websocketdto.*;
 import com.codecool.twentyone.model.entities.*;
@@ -16,7 +17,6 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.stereotype.Controller;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.socket.messaging.SessionDisconnectEvent;
-
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,26 +52,32 @@ public class MessageController {
 
     @MessageMapping("/game.join")
     public void joinGame(@Payload JoinMessageDTO message, SimpMessageHeaderAccessor headerAccessor, Principal principal) {
-        Game game = messageService.joinGame(message.playerName());
-        if (game == null) {
-            GameMessage errorMessage = new GameMessage();
-            errorMessage.setType("error");
-            errorMessage.setContent("We were unable to enter the game.");
-            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", errorMessage);
-            return;
+        String playerName = principal.getName();
+        if (message.playerName().equals(playerName)) {
+            Game game = messageService.joinGame(message.playerName());
+            if (game == null) {
+                GameMessage errorMessage = new GameMessage();
+                errorMessage.setType("error");
+                errorMessage.setContent("We were unable to enter the game.");
+                messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", errorMessage);
+                return;
+            }
+            Objects.requireNonNull(headerAccessor.getSessionAttributes()).put("gameId", game.getGameId());
+            headerAccessor.getSessionAttributes().put("player", message.playerName());
+            GameMessage joinMessage = messageService.gameToMessage(game);
+            joinMessage.setType("game.joined");
+            joinMessage.setContent(message.playerName().toUpperCase() + " has joined the game.");
+            if (game.getTurnName().equals("Dealer")) {
+                DealerHandDTO dealerHandDTO = gameService.getDealerHand(game.getGameId());
+                joinMessage.setDealerPublicHand(dealerHandDTO);
+            }
+            messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", joinMessage);
+            joinMessage.setType("player.joined");
+            messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), joinMessage);
+        } else {
+            throw new NotAllowedOperationException("You are not allowed to join this game.");
         }
-        Objects.requireNonNull(headerAccessor.getSessionAttributes()).put("gameId", game.getGameId());
-        headerAccessor.getSessionAttributes().put("player", message.playerName());
-        GameMessage joinMessage = messageService.gameToMessage(game);
-        joinMessage.setType("game.joined");
-        joinMessage.setContent(message.playerName().toUpperCase() + " has joined the game.");
-        if (game.getTurnName().equals("Dealer")) {
-            DealerHandDTO dealerHandDTO = gameService.getDealerHand(game.getGameId());
-            joinMessage.setDealerPublicHand(dealerHandDTO);
-        }
-        messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", joinMessage);
-        joinMessage.setType("player.joined");
-        messagingTemplate.convertAndSend("/topic/game." + game.getGameId(), joinMessage);
+
     }
 
 @MessageMapping("/game.leave")
@@ -81,7 +87,7 @@ public void leaveGame(@Payload LeaveMessageDTO request, Principal principal, Sim
     if (!playerName.equals(request.playerName())) {
         throw new RuntimeException("Invalid player name");
     }
-    // 👉 explicit logout jelölése
+
     headerAccessor.getSessionAttributes().put("explicitLogout", true);
     GameMessage message = gameService.leaveGame(request.gameId(), playerName);
     if (message != null) {
@@ -97,7 +103,7 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
     if (sessionAttributes == null) {
         return;
     }
-    // 👉 ha már explicit kilépett, nem csinálunk semmit
+
     if (Boolean.TRUE.equals(sessionAttributes.get("explicitLogout"))) {
         System.out.println("Session disconnected after explicit logout – skipping leaveGame");
         return;
@@ -122,7 +128,7 @@ public void onSessionDisconnect(SessionDisconnectEvent event) {
         ResetHandDTO resetOwnHandDTO = new ResetHandDTO("Reset your hand", "reset.ownHand");
         messagingTemplate.convertAndSendToUser(principal.getName(), "/queue/private", resetOwnHandDTO);
         shuffleService.addShuffledDeck(request.gameId());
-        //shuffleService.useFakeDeck(request.gameId());
+        //shuffleService.useFakeDeck(request.gameId()); // for demonstration purpose
         Game game = getInitialGame(request);
         dealerRepository.setCardNumberById(game.getDealerId());
         dealerHandRepository.deleteAllByDealerId(game.getDealerId());

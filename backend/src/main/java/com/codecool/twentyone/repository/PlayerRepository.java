@@ -7,7 +7,6 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.NativeQuery;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
@@ -17,24 +16,11 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
     boolean existsByPlayerName(String playerName);
     boolean existsByEmail(String email);
 
-    //PlayerState findStateByPlayerName(String playerName);
-
-
-    @NativeQuery(value = "SELECT card_number FROM player WHERE player_name = ?1")
-    int cardNumberByPlayerName(@Param("player_name") String playerName);
-
-    @NativeQuery(value = "UPDATE player SET state='WAITING_CARD' WHERE id = ?1")
-    void updatePlayerState(@Param("id") Long id);
-
-    @NativeQuery(value = "UPDATE player SET card_number=0 WHERE player_name = ?1")
-    void resetCardNumber(@Param("player_name") String playerName);
-
     @NativeQuery(value = "SELECT state FROM player WHERE player_name = ?1")
     PlayerState getPlayerStateByPlayerName(@Param("player_name") String playerName);
 
     @NativeQuery(value = "SELECT balance FROM player WHERE player_name = ?1")
     int getBalanceByPlayerName(@Param("player_name") String playerName);
-
 
     @Modifying
     @NativeQuery(value = "UPDATE player SET state = 'OHNE_ACE' WHERE player_name = ?1")

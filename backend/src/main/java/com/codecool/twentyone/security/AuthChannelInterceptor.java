@@ -1,6 +1,5 @@
 package com.codecool.twentyone.security;
 
-
 import com.codecool.twentyone.security.jwt.JwtUtils;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -10,7 +9,6 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
-
 import java.util.List;
 
 @Component
@@ -28,7 +26,6 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
                 MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
         if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-            // A frontenden ezt küldöd: { Authorization: "Bearer <token>" }
             String authHeader = accessor.getFirstNativeHeader("Authorization");
 
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
@@ -37,8 +34,6 @@ public class AuthChannelInterceptor implements ChannelInterceptor {
 
                 if (jwtUtils.validateJwtToken(token)) {
                     String username = jwtUtils.getUserNameFromJwtToken(token);
-
-                    // A Principal beállítása – ez az, amit a Spring használni fog
                     accessor.setUser(new UsernamePasswordAuthenticationToken(username, null, List.of()));
                 } else {
                     throw new IllegalArgumentException("Invalid JWT token");

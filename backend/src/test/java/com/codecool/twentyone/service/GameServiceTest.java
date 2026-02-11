@@ -678,8 +678,6 @@ public class GameServiceTest {
 
     @Test
     void handleDealerTurn_shouldDiscardCards_when_hasFiveCards_AndTwoActivePlayers() {
-
-        //handleDealerTurn
         Game game = new Game();
         game.setPlayer2("John");
         game.setPlayer4("Jane");
@@ -694,8 +692,6 @@ public class GameServiceTest {
         game.setRemainingCards(27);
         when(gameRepository.findById(game.getGameId())).thenReturn(Optional.of(game));
 
-        //getPlayerWithActiveHands
-        //addPlayerWithActiveHand
         Player player1 = new Player();
         player1.setPlayerName(game.getPlayer2());
         player1.setPlayerState(PlayerState.ENOUGH);
@@ -718,91 +714,68 @@ public class GameServiceTest {
         player2.setBalance(game.getPlayer4Balance());
         when(playerRepository.findByPlayerName(player2.getPlayerName())).thenReturn(Optional.of(player2));
 
-        //processWithActivePlayerHands
         Dealer dealer = new Dealer();
         dealer.setId(game.getDealerId());
         dealer.setBalance(game.getDealerBalance());
         when(dealerRepository.findById(game.getDealerId())).thenReturn(Optional.of(dealer));
 
-        //getDealerHand először, az első lapot adja vissza
         DealerCard dealerCard1 = new DealerCard();
         dealerCard1.setCardValue(2);
         dealerCard1.setFrontImagePath("card1.png");
         dealerCard1.setDealer(dealer);
 
-
-        //addMessageWithFirsCard
         GameMessage gameMessage = new GameMessage();
         when(messageService.gameToMessage(game)).thenReturn(gameMessage);
 
-        //getMinHandValue
-        //dealerPullsCards
-        //automaticCardPulling
-        Card card2 = new Card(); //ez a második lap
+        Card card2 = new Card();
         card2.setValue(3);
         card2.setFrontImagePath("card2.png");
-        //addNormalDealerMessage
-        //getDealerHand másodszor, a második kártyát adja vissza
+
         DealerCard dealerCard2 = new DealerCard();
         dealerCard2.setCardValue(3);
         dealerCard2.setFrontImagePath("card2.png");
         dealerCard2.setDealer(dealer);
 
-        //automaticCardPulling
-        Card card3 = new Card(); //ez a harmadik lap
+        Card card3 = new Card();
         card3.setValue(4);
         card3.setFrontImagePath("card3.png");
 
-        //addNormalDealerMessage
-        //getDealerHand harmadszor, a harmadik kártyát adja vissza
         DealerCard dealerCard3 = new DealerCard();
         dealerCard3.setCardValue(4);
         dealerCard3.setFrontImagePath("card3.png");
         dealerCard3.setDealer(dealer);
 
-        //automaticCardPulling
-        Card card4 = new Card(); //ez a negyedik lap
+        Card card4 = new Card();
         card4.setValue(3);
         card4.setFrontImagePath("card4.png");
 
-        //addNormalDealerMessage
-        //getDealerHand negyedszer, a negyedik kártyát adja vissza
         DealerCard dealerCard4 = new DealerCard();
         dealerCard4.setCardValue(3);
         dealerCard4.setFrontImagePath("card4.png");
         dealerCard4.setDealer(dealer);
 
-        //automaticCardPulling
-        Card card5 = new Card(); //ez az ötödik lap
+        Card card5 = new Card();
         card5.setValue(4);
         card5.setFrontImagePath("card5.png");
 
-        //dealerDiscardsFiveCards
-        //getDealerHand ötödször, az ötödik kártyát adja vissza
         DealerCard dealerCard5 = new DealerCard();
         dealerCard5.setCardValue(4);
         dealerCard5.setFrontImagePath("card5.png");
         dealerCard5.setDealer(dealer);
 
-        //automaticCardPulling
-        Card card6 = new Card(); //ez a hatodik (első) lap
+        Card card6 = new Card();
         card6.setValue(11);
         card6.setFrontImagePath("card6.png");
 
-        //addNormalDealerMessage
-        //getDealerHand hatodszor, a hatodik kártyát adja vissza
         DealerCard dealerCard6 = new DealerCard();
         dealerCard6.setCardValue(11);
         dealerCard6.setFrontImagePath("card6.png");
         dealerCard6.setDealer(dealer);
 
-        //automaticCardPulling
-        Card card7 = new Card(); //ez a hetedik (második) lap
+        Card card7 = new Card();
         card7.setValue(7);
         card7.setFrontImagePath("card7.png");
 
-        //addNormalDealerMessage
-        //getDealerHand hetedszer, a hetedik kártyát adja vissza
         DealerCard dealerCard7 = new DealerCard();
         dealerCard7.setCardValue(7);
         dealerCard7.setFrontImagePath("card7.png");

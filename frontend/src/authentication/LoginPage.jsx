@@ -1,9 +1,5 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import bellSvg from "../assets/bell.svg";
-import heartSvg from "../assets/heart.svg";
-import acornSvg from "../assets/acorn.svg";
-import leafSvg from "../assets/leaf.svg";
 import { usePlayer } from "../context/PlayerContext.jsx";
 import CardTableDecoration from "../pageComponents/CardTableDecoration.jsx";
 import InputField from "../pageComponents/InputField.jsx";

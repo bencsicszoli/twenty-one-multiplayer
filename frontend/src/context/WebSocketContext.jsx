@@ -10,7 +10,6 @@ export function WebSocketProvider({ children }) {
   const [connected, setConnected] = useState(false);
   const stompClientRef = useRef(null);
 
-  // Queue a deferred feliratkozásokhoz
   const subscriptionQueueRef = useRef([]);
 
   useEffect(() => {
@@ -29,7 +28,6 @@ export function WebSocketProvider({ children }) {
         console.log("✅ WebSocket connected");
         setConnected(true);
 
-        // Lefuttatjuk a deferred feliratkozásokat
         subscriptionQueueRef.current.forEach(({ destination, callback }) => {
           client.subscribe(destination, callback);
         });
@@ -48,7 +46,6 @@ export function WebSocketProvider({ children }) {
     };
   }, [token]);
 
-  // Helper: Feliratkozás
   function subscribe(destination, callback) {
     const client = stompClientRef.current;
 
@@ -61,7 +58,6 @@ export function WebSocketProvider({ children }) {
     }
   }
 
-  // Helper: Üzenet küldése
   function send(destination, body) {
     const client = stompClientRef.current;
 

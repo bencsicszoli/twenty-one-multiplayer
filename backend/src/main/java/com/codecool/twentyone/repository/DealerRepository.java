@@ -11,8 +11,6 @@ import java.util.Optional;
 
 @Repository
 public interface DealerRepository extends JpaRepository<Dealer, Long> {
-    //Optional<Dealer> findById(Long id);
-    //int findCardNumberById(Long id);
 
     @NativeQuery(value = "SELECT card_number FROM dealer WHERE id = ?1")
     int findCardNumberById(@Param("card_number") Long id);

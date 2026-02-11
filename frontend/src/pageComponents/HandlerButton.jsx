@@ -1,5 +1,3 @@
-
-
 function HandlerButton({onAction, buttonText}) {
 
   return (

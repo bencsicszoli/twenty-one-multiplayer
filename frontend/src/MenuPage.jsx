@@ -10,12 +10,10 @@ function MenuPage() {
   const { player, setPlayer, setToken } = usePlayer();
   const { connected, subscribe, send } = useWebSocket();
 
-    // Ha nincs bejelentkezett játékos, vissza a loginra
   useEffect(() => {
     if (!player) navigate(`/`);
   }, [player, navigate]);
 
-  // Feliratkozás a game state-re
   useEffect(() => {
     if (!connected) return;
 

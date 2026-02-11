@@ -7,7 +7,6 @@ import com.codecool.twentyone.repository.CardRepository;
 import com.codecool.twentyone.repository.FakeDeckRepository;
 import com.codecool.twentyone.repository.ShuffleRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,7 +26,6 @@ public class ShuffleService {
         this.fakeDeckRepository = fakeDeckRepository;
     }
 
-    //@Transactional
     public void addShuffledDeck(Long gameId) {
         shuffleRepository.deleteByGameId(gameId);
         List<Integer> shuffledCardIndexes = getShuffledCardIndexes();

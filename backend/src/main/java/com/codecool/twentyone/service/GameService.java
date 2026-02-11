@@ -1,6 +1,7 @@
 package com.codecool.twentyone.service;
 
-import com.codecool.twentyone.model.dto.*;
+import com.codecool.twentyone.exception_handler.custom_exception.GameRuleBreakingException;
+import com.codecool.twentyone.model.dto.GameMessage;
 import com.codecool.twentyone.model.dto.websocketdto.CardDTO;
 import com.codecool.twentyone.model.dto.websocketdto.DealerHandDTO;
 import com.codecool.twentyone.model.dto.websocketdto.PlayerHandDTO;
@@ -36,12 +37,9 @@ public class GameService {
 
     @Transactional
     public PlayerHandDTO getFirstCard(Long gameId, String playerName) {
-        //Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
         Game game = loadGame(gameId);
-        //Card firstCard = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         Card firstCard = getNextCard(gameId, game.getCardOrder());
         Player player = loadPlayer(playerName);
-        //Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
         PlayerCard playerCard = new PlayerCard();
         playerCard.setCardValue(firstCard.getValue());
         playerCard.setFrontImagePath(firstCard.getFrontImagePath());
@@ -56,11 +54,10 @@ public class GameService {
         return new PlayerHandDTO(PlayerState.WAITING_CARD, List.of(dto), handValue, "hand.firstUpdate");
     }
 
-    //@Transactional
     public void giveDealerFirstCard(Long gameId, Long dealerId) {
         Game game = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
-        Card card = shuffleRepository.findCardByGameIdAndCardOrder(gameId, game.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
-        Dealer dealer = dealerRepository.findById(dealerId).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        Card card = getNextCard(gameId, game.getCardOrder());
+        Dealer dealer = loadDealer(dealerId);
         DealerCard dealerCard = new DealerCard();
         dealerCard.setCardValue(card.getValue());
         dealerCard.setFrontImagePath(card.getFrontImagePath());
@@ -93,9 +90,7 @@ public class GameService {
 
     private void dealCard(Player currentPlayer, Game currentGame) {
         currentPlayer.setCardNumber(currentPlayer.getCardNumber() + 1);
-        //playerRepository.save(currentPlayer);
         currentGame.setRemainingCards(currentGame.getRemainingCards() - 1);
-        //Card card = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
         Card card = getNextCard(currentGame.getGameId(), currentGame.getCardOrder());
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
         PlayerCard handCard = new PlayerCard();
@@ -122,7 +117,6 @@ public class GameService {
     private void handleStand(Player currentPlayer, Game currentGame) {
         currentPlayer.setPlayerState(PlayerState.ENOUGH);
         currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'"));
-        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
         currentGame.setCallNextTurnRequired(true);
     }
 
@@ -130,7 +124,6 @@ public class GameService {
         currentPlayer.setPlayerState(PlayerState.FIRE);
         currentPlayer.setBalance(currentPlayer.getBalance() + currentPlayer.getPot());
         currentGame.setInformation((currentPlayer.getPlayerName().toUpperCase() + " with aces-only hand won " + currentPlayer.getPot() / 2 + " $!"));
-        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
         currentGame.setCallNextTurnRequired(true);
         currentPlayer.setPot(0);
         currentPlayer.setGames(currentPlayer.getGames() + 1);
@@ -143,7 +136,6 @@ public class GameService {
         dealer.setBalance(dealer.getBalance() + currentPlayer.getPot());
         currentGame.setDealerBalance(dealer.getBalance());
         currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " busted and lost " + currentPlayer.getPot() / 2 + " $!");
-        //setNextTurnName(currentGame, currentPlayer.getPlayerName());
         currentGame.setCallNextTurnRequired(true);
         currentPlayer.setPot(0);
         currentPlayer.setGames(currentPlayer.getGames() + 1);
@@ -180,19 +172,27 @@ public class GameService {
     }
 
     private Player loadPlayer(String playerName) {
-        return playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        return playerRepository.findByPlayerName(playerName).orElseThrow(() -> new NoSuchElementException("Player not found"));
     }
 
     private Game loadGame(Long gameId) {
-        return gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        return gameRepository.findById(gameId).orElseThrow(() -> new NoSuchElementException("Game not found"));
     }
 
     private Dealer loadDealer(Long dealerId) {
-        return dealerRepository.findById(dealerId).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        return dealerRepository.findById(dealerId).orElseThrow(() -> new NoSuchElementException("Dealer not found"));
     }
 
     private Card getNextCard(Long gameId, int cardOrder) {
-        return shuffleRepository.findCardByGameIdAndCardOrder(gameId, cardOrder).orElseThrow(() -> new RuntimeException("Card not found"));
+        return shuffleRepository.findCardByGameIdAndCardOrder(gameId, cardOrder).orElseThrow(() -> new NoSuchElementException("Card not found"));
+    }
+
+    private List<PlayerCard> getPlayerCards(Long playerId) {
+        return playerHandRepository.findAllByPlayerId(playerId).orElseThrow(() -> new NoSuchElementException("Player not found"));
+    }
+
+    private List<DealerCard> getDealerCards(Long dealerId) {
+        return dealerHandRepository.findAllByDealerId(dealerId).orElseThrow(() -> new NoSuchElementException("Cards not found"));
     }
 
     public PlayerStateDTO getPlayerState(String playerName) {
@@ -207,30 +207,30 @@ public class GameService {
     }
 
     public GameMessage passTurnWhenStand(Long gameId, String turnPlayerName) {
-        Player currentPlayer = playerRepository.findByPlayerName(turnPlayerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        //Player currentPlayer = playerRepository.findByPlayerName(turnPlayerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        Player currentPlayer = loadPlayer(turnPlayerName);
         int handValue = playerHandRepository.getHandValue(currentPlayer.getId());
         if (handValue < 15) {
-            throw new RuntimeException("You cannot stop under 15");
+            throw new GameRuleBreakingException("You cannot stop under 15");
         } else if (currentPlayer.getPlayerState().equals(PlayerState.WAITING_CARD)) {
-            throw new RuntimeException("You must take another card after placing a bet");
+            throw new GameRuleBreakingException("You must take another card after placing a bet");
         }
         currentPlayer.setPlayerState(PlayerState.ENOUGH);
         playerRepository.save(currentPlayer);
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        Game currentGame = loadGame(gameId);
         currentGame.setInformation(currentPlayer.getPlayerName().toUpperCase() + " announced 'stand'");
         return passTurn(currentGame, turnPlayerName);
     }
 
     public PlayerHandDTO getHand(String playerName) {
-        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
-        List<PlayerCard> ownCards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        Player player = loadPlayer(playerName);
+        List<PlayerCard> ownCards = getPlayerCards(player.getId());
         List<CardDTO> cardDTOList = new ArrayList<>();
         int handValue = 0;
         for (PlayerCard card : ownCards) {
             cardDTOList.add(new CardDTO(card.getCardValue(), card.getFrontImagePath()));
             handValue += card.getCardValue();
         }
-        //int handValue = playerHandRepository.getHandValue(player.getId());
         if (!player.getPlayerState().equals(PlayerState.OHNE_ACE)) {
             return new PlayerHandDTO(player.getPlayerState(), cardDTOList, handValue, "hand.update");
         }
@@ -278,7 +278,7 @@ public class GameService {
     private void addPlayerWithActiveHand(PlayerSlot slot, Game currentGame, List<Player> playersWithActiveHands) {
         String playerName = slot.getPlayer.apply(currentGame);
         if (playerName != null) {
-            Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+            Player player = loadPlayer(playerName);
             if (player.getPlayerState().equals(PlayerState.ENOUGH)) {
                 playersWithActiveHands.add(player);
                 slot.setPublicHandExists.accept(currentGame, true);
@@ -296,11 +296,10 @@ public class GameService {
     }
 
     private void processWithActivePlayerHands(Game currentGame, List<GameMessage> messages, List<Player> playersWithActiveHands) {
-        Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        Dealer dealer = loadDealer(currentGame.getDealerId());
         DealerHandDTO firstCardDTO = getDealerHand(currentGame.getGameId());
         addMessageWithFirstCard(currentGame, messages, firstCardDTO);
         int dealerHandValue = firstCardDTO.handValue();
-        //int dealerHandValue = dealerHandRepository.getHandValue(currentGame.getDealerId()); //a DealerHandDTO-ban benne van
         boolean announcedOhneAce = false;
         int dealerCardsNumber = 1;
         int minDealerHandValue = getMinDealerHandValue(playersWithActiveHands.size());
@@ -356,7 +355,7 @@ public class GameService {
     }
 
     private int automaticCardPulling(Game currentGame, int dealerHandValue, Dealer dealer) {
-        Card newCard = shuffleRepository.findCardByGameIdAndCardOrder(currentGame.getGameId(), currentGame.getCardOrder()).orElseThrow(() -> new RuntimeException("Card not found"));
+        Card newCard = getNextCard(currentGame.getGameId(), currentGame.getCardOrder());
         currentGame.setCardOrder(currentGame.getCardOrder() + 1);
         dealerHandValue = dealerHandValue + newCard.getValue();
         DealerCard dealerCard = new DealerCard();
@@ -461,8 +460,8 @@ public class GameService {
     }
 
     public DealerHandDTO getDealerHand(Long gameId) {
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new NoSuchElementException("Game not found"));
-        List<DealerCard> dealerCards = dealerHandRepository.findAllByDealerId(currentGame.getDealerId()).orElseThrow(() -> new NoSuchElementException("Cards not found"));
+        Game currentGame = loadGame(gameId);
+        List<DealerCard> dealerCards = getDealerCards(currentGame.getDealerId());
         List<CardDTO> dealerCardDTOs = new ArrayList<>();
         for (DealerCard dealerCard : dealerCards) {
             CardDTO cardDTO = new CardDTO(dealerCard.getCardValue(), dealerCard.getFrontImagePath());
@@ -474,10 +473,10 @@ public class GameService {
 
     public GameMessage raiseBet(Long gameId, String turnName, int bet) {
         if (bet < 0) {
-            throw new IllegalArgumentException("Bet cannot be negative");
+            throw new GameRuleBreakingException("Bet cannot be negative");
         }
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
-        Dealer dealer = dealerRepository.findById(currentGame.getDealerId()).orElseThrow(() -> new RuntimeException("Dealer not found"));
+        Game currentGame = loadGame(gameId);
+        Dealer dealer = loadDealer(currentGame.getDealerId());
         betProcessOfTurnPlayer(turnName, bet, currentGame, dealer);
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
@@ -500,12 +499,12 @@ public class GameService {
     }
 
     private void placingBetProcess(Game currentGame, int bet, Dealer dealer, String turnName) {
-        Player player = playerRepository.findByPlayerName(turnName).orElseThrow(() -> new RuntimeException("Player not found"));
+        Player player = loadPlayer(turnName);
         if (player.getBalance() < bet) {
-            throw new RuntimeException("Player's balance is less than bet");
+            throw new GameRuleBreakingException("Player's balance is less than bet");
         }
         if (dealer.getBalance() < bet) {
-            throw new RuntimeException("Dealer balance is less than bet");
+            throw new GameRuleBreakingException("Dealer balance is less than bet");
         }
         player.setBalance(player.getBalance() - bet);
         player.setPot(player.getPot() + bet * 2);
@@ -526,7 +525,7 @@ public class GameService {
     }
 
     public GameMessage setContent(Long gameId, String content) {
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        Game currentGame = loadGame(gameId);
         currentGame.setInformation(content);
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);
@@ -534,11 +533,11 @@ public class GameService {
 
     @Transactional
     public PlayerHandDTO throwAce(String playerName) {
-        Player player = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        Player player = loadPlayer(playerName);
         playerHandRepository.deleteAceFromHand(player.getId());
         player.setCardNumber(player.getCardNumber() - 1);
         playerRepository.save(player);
-        List<PlayerCard> cards = playerHandRepository.findAllByPlayerId(player.getId()).orElseThrow(() -> new RuntimeException("Cards not found"));
+        List<PlayerCard> cards = getPlayerCards(player.getId());
         List<CardDTO> dtos = new ArrayList<>();
         for (PlayerCard card : cards) {
             CardDTO cardDTO = new CardDTO(card.getCardValue(), card.getFrontImagePath());
@@ -549,13 +548,11 @@ public class GameService {
 
     @Transactional
     public GameMessage leaveGame(Long gameId, String playerName) {
-
-        //Személyes játékadatok törlése
-        Player leavingPlayer = playerRepository.findByPlayerName(playerName).orElseThrow(() -> new RuntimeException("Player not found"));
+        Player leavingPlayer = loadPlayer(playerName);
         playerHandRepository.deleteAllByPlayerId(leavingPlayer.getId());
         leavingPlayer.setCardNumber(0);
         leavingPlayer.setPlayerState(PlayerState.WAITING_CARD);
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(() -> new RuntimeException("Game not found"));
+        Game currentGame = loadGame(gameId);
         if (leavingPlayer.getPot() > 0) {
             dealerRepository.setDealerBalanceById(leavingPlayer.getPot(), currentGame.getDealerId());
             currentGame.setDealerBalance(currentGame.getDealerBalance() + leavingPlayer.getPot());
@@ -563,11 +560,8 @@ public class GameService {
         }
         playerRepository.save(leavingPlayer);
 
-        //Eldöntjük, hogy egy vagy több játékos van-e játékban
-
         int playersNumber = countActivePlayers(currentGame);
 
-        //Eljárás egy játékos esetén
         if (playersNumber == 1) {
             shuffleRepository.deleteByGameId(gameId);
             dealerHandRepository.deleteAllByDealerId(currentGame.getDealerId());
@@ -575,8 +569,6 @@ public class GameService {
             gameRepository.deleteById(gameId);
             return null;
         }
-
-        //Eljárás több játékos esetén
 
         if (playerName.equals(currentGame.getPlayer1())) {
             return handlePlayerLeaving(currentGame, currentGame.getPlayer1(), PlayerSlot.PLAYER1);
@@ -626,15 +618,14 @@ public class GameService {
         return playersNumber;
     }
 
-
     @Transactional
     public GameMessage throwCards(String playerName, Long gameId) {
-        Player playerWithFiveCards = playerRepository.findByPlayerName(playerName).orElseThrow(()-> new IllegalArgumentException("Player not found"));
+        Player playerWithFiveCards = loadPlayer(playerName);
         playerHandRepository.deleteAllByPlayerId(playerWithFiveCards.getId());
         playerWithFiveCards.setPlayerState(PlayerState.WAITING_CARD);
         playerWithFiveCards.setCardNumber(0);
         playerRepository.save(playerWithFiveCards);
-        Game currentGame = gameRepository.findById(gameId).orElseThrow(()-> new RuntimeException("Game not found"));
+        Game currentGame = loadGame(gameId);
         currentGame.setInformation(playerName.toUpperCase() + " discarded 5 cards!");
         gameRepository.save(currentGame);
         return messageService.gameToMessage(currentGame);

@@ -6,7 +6,6 @@ import com.codecool.twentyone.model.dto.websocketdto.PublicHandDTO;
 import com.codecool.twentyone.model.entities.*;
 import com.codecool.twentyone.repository.*;
 import org.springframework.stereotype.Service;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -34,38 +33,9 @@ public class MessageService {
         Optional<Game> existingGameOpt = gameRepository.findFirstGameByMissingPlayer();
         if (existingGameOpt.isPresent()) {
             Game existingGame = existingGameOpt.get();
-            if (existingGame.getPlayer1() == null) {
-                existingGame.setPlayer1(player);
-                existingGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
-                return gameRepository.save(existingGame);
-            } else if (existingGame.getPlayer2() == null) {
-                existingGame.setPlayer2(player);
-                existingGame.setPlayer2Balance(playerRepository.getBalanceByPlayerName(player));
-                return gameRepository.save(existingGame);
-            } else if (existingGame.getPlayer3() == null) {
-                existingGame.setPlayer3(player);
-                existingGame.setPlayer3Balance(playerRepository.getBalanceByPlayerName(player));
-                return gameRepository.save(existingGame);
-            } else {
-                existingGame.setPlayer4(player);
-                existingGame.setPlayer4Balance(playerRepository.getBalanceByPlayerName(player));
-                return gameRepository.save(existingGame);
-            }
+            return setPlayerAndBalanceWhenJoinTheGame(existingGame, player);
         }
-        Game newGame = new Game();
-        Dealer dealer = dealerRepository.save(new Dealer());
-        newGame.setDealerId(dealer.getId());
-        newGame.setPlayer1(player);
-        newGame.setPlayer2(null);
-        newGame.setPlayer3(null);
-        newGame.setPlayer4(null);
-        newGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
-        newGame.setPlayer2Balance(0);
-        newGame.setPlayer3Balance(0);
-        newGame.setPlayer4Balance(0);
-        newGame.setDealerBalance(100);
-        newGame.setTurnName(player);
-        return gameRepository.save(newGame);
+        return createNewGame(player);
     }
 
     public GameMessage gameToMessage(Game game) {
@@ -162,6 +132,43 @@ public class MessageService {
         message.setDealerBalance(dealer.getBalance());
 
         return message;
+    }
+
+    private Game setPlayerAndBalanceWhenJoinTheGame(Game existingGame, String player) {
+        if (existingGame.getPlayer1() == null) {
+            existingGame.setPlayer1(player);
+            existingGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
+            return gameRepository.save(existingGame);
+        } else if (existingGame.getPlayer2() == null) {
+            existingGame.setPlayer2(player);
+            existingGame.setPlayer2Balance(playerRepository.getBalanceByPlayerName(player));
+            return gameRepository.save(existingGame);
+        } else if (existingGame.getPlayer3() == null) {
+            existingGame.setPlayer3(player);
+            existingGame.setPlayer3Balance(playerRepository.getBalanceByPlayerName(player));
+            return gameRepository.save(existingGame);
+        } else {
+            existingGame.setPlayer4(player);
+            existingGame.setPlayer4Balance(playerRepository.getBalanceByPlayerName(player));
+            return gameRepository.save(existingGame);
+        }
+    }
+
+    private Game createNewGame(String player) {
+        Game newGame = new Game();
+        Dealer dealer = dealerRepository.save(new Dealer());
+        newGame.setDealerId(dealer.getId());
+        newGame.setPlayer1(player);
+        newGame.setPlayer2(null);
+        newGame.setPlayer3(null);
+        newGame.setPlayer4(null);
+        newGame.setPlayer1Balance(playerRepository.getBalanceByPlayerName(player));
+        newGame.setPlayer2Balance(0);
+        newGame.setPlayer3Balance(0);
+        newGame.setPlayer4Balance(0);
+        newGame.setDealerBalance(100);
+        newGame.setTurnName(player);
+        return gameRepository.save(newGame);
     }
 
     private PublicHandDTO getPublicHandDTO(List<PlayerCard> playerCard) {

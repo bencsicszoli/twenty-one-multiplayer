@@ -8,6 +8,6 @@ import java.util.Random;
 public class RandomConfig {
     @Bean
     public Random random() {
-        return new Random(); // VAGY: new SecureRandom()
+        return new Random();
     }
 }

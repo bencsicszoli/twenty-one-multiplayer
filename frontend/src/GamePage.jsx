@@ -688,7 +688,7 @@ function GamePage() {
     <div className="min-h-screen flex items-center justify-center bg-table-background px-4 py-8">
       <div className="p-4 sm:p-6 bg-[#4B2E1F] rounded-[90px] shadow-inner w-full">
         <div className="w-full h-[830px] bg-poker-table rounded-[70px] shadow-2xl text-white px-6 sm:px-8">
-          {/*Menügombok konténere */}
+          {/*Container of menu buttons */}
           <div className="w-full h-1/5 flex justify-around items-center relative -top-3">
             <MenuButton onClick={leaveGame} buttonText="Logout" />
             <MenuButton onClick={backToMenu} buttonText="Menu" />
@@ -702,12 +702,12 @@ function GamePage() {
             )}
           </div>
 
-          {/* Játéktér konténere */}
+          {/* Container of playground */}
           <div className="flex w-full h-4/5 relative -top-3">
             <div className="w-[38%] h-full flex flex-col">
-              {/* Bal felső játékos terepe */}
+              {/* Upperleft player's place */}
               <div className="w-full h-1/2 flex">
-                {/* Kezelőgombok helye */}
+                {/* Place of handler buttons */}
                 {gameState.turnName === player?.playerName && (
                   <HandlerPanel
                     onMoreCard={getMoreCard}
@@ -727,7 +727,7 @@ function GamePage() {
                   />
                 )}
 
-                {/* Kézben lévő lapok helye */}
+                {/* Place of player's hand */}
                 <HandPlace
                   gameState={gameState}
                   betButtonClicked={betButtonClicked}
@@ -750,7 +750,6 @@ function GamePage() {
                   playerFinalBalance={player2FinalBalance}
                 />
 
-                {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
                   playerPot={player2Pot}
@@ -759,9 +758,9 @@ function GamePage() {
                 />
               </div>
 
-              {/* Bal alsó játékos terepe */}
+              {/* Bottomleft player's place */}
               <div className="w-full h-1/2 flex">
-                {/* Kezelőgombok helye */}
+                {/* Place of handler buttons */}
                 {gameState.turnName === player?.playerName && (
                   <HandlerPanel
                     onMoreCard={getMoreCard}
@@ -781,7 +780,7 @@ function GamePage() {
                   />
                 )}
 
-                {/* Kézben lévő lapok helye */}
+                {/* Place of player's hand */}
                 <HandPlace
                   gameState={gameState}
                   betButtonClicked={betButtonClicked}
@@ -804,7 +803,6 @@ function GamePage() {
                   playerFinalBalance={player3FinalBalance}
                 />
 
-                {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
                   playerPot={player3Pot}
@@ -814,7 +812,7 @@ function GamePage() {
               </div>
             </div>
             <div className="w-[24%] h-full flex flex-col">
-              {/* RemainingCards helye */}
+              {/* Place of RemainingCards */}
               <RemainingCardsPlace
                 gameState={gameState}
                 onShowRemainingCards={showRemainingCards}
@@ -822,7 +820,7 @@ function GamePage() {
                 finalRemainingCards={finalRemainingCards}
               />
 
-              {/* Osztó terepe */}
+              {/* Dealer's place */}
               <DealerHandPlace
                 gameState={gameState}
                 onShowHand={showHand}
@@ -833,7 +831,7 @@ function GamePage() {
                 dealerFinalBalance={dealerFinalBalance}
               />
 
-              {/* Értesítések helye */}
+              {/* Place of Messages */}
               <MessagesPlace
                 gameState={gameState}
                 onDisplayInformation={displayInformation}
@@ -842,9 +840,9 @@ function GamePage() {
               />
             </div>
             <div className="w-[38%] h-full flex flex-col">
-              {/* Jobb felső játékos terepe */}
+              {/* Place of upper right player */}
               <div className="w-full h-1/2 flex flex-row-reverse">
-                {/* Kezelőgombok helye */}
+                {/* Place of handler buttons */}
                 {gameState.turnName === player?.playerName && (
                   <HandlerPanel
                     onMoreCard={getMoreCard}
@@ -864,7 +862,7 @@ function GamePage() {
                   />
                 )}
 
-                {/* Kézben lévő lapok helye */}
+                {/* Place of player's hand */}
                 <HandPlace
                   gameState={gameState}
                   betButtonClicked={betButtonClicked}
@@ -887,7 +885,6 @@ function GamePage() {
                   playerFinalBalance={player1FinalBalance}
                 />
 
-                {/* Tét helye */}
                 <PotPlace
                   onShowCoins={showCoins}
                   playerPot={player1Pot}
@@ -896,9 +893,9 @@ function GamePage() {
                 />
               </div>
 
-              {/* Jobb alsó játékos terepe */}
+              {/* Place of bottom right player */}
               <div className="w-full h-1/2 flex flex-row-reverse">
-                {/* Kezelőgombok helye */}
+                {/* Place of handler buttons */}
                 {gameState.turnName === player?.playerName && (
                   <HandlerPanel
                     onMoreCard={getMoreCard}
@@ -918,7 +915,7 @@ function GamePage() {
                   />
                 )}
 
-                {/* Kézben lévő lapok helye */}
+                {/* Place of player's hand */}
                 <HandPlace
                   gameState={gameState}
                   betButtonClicked={betButtonClicked}
@@ -940,7 +937,7 @@ function GamePage() {
                   playerBalanceValue={player4Balance}
                   playerFinalBalance={player4FinalBalance}
                 />
-                {/* Tét helye */}
+                
                 <PotPlace
                   onShowCoins={showCoins}
                   playerPot={player4Pot}

@@ -5,7 +5,6 @@ import com.codecool.twentyone.service.PlayerService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 import java.util.Map;
 
 @RestController
@@ -44,11 +43,4 @@ public class PlayerController {
     public Map<String, String> editCredentials(@RequestBody EditCredentialsDTO request) {
         return playerService.editCredentials(request);
     }
-/*
-    @GetMapping("/clean")
-    public Map<String, String> clean() {
-        return gameService.cleanGameForTestingPurpose();
-    }
-
- */
 }
